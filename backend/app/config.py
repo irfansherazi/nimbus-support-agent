@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     embedding_dim: int = 1536
 
     # Retrieval and guardrails
-    rag_t_low: float = 0.30
-    rag_t_high: float = 0.45
+    rag_t_low: float = 0.44
+    rag_t_high: float = 0.52
     rag_top_k: int = 5
 
     # Resilience

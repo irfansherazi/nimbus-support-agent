@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -21,6 +22,27 @@ class IssueRefundArgs(BaseModel):
     invoice_id: str = Field(description="Invoice ID, e.g. INV-2207")
     amount_usd: float = Field(description="Refund amount in US dollars")
     reason: str = Field(description="Short reason the customer gave")
+
+
+_AMOUNT = re.compile(r"(?<![\w-])\$?\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?(?![\w-])")
+_AFFIRMATIVE = re.compile(r"^\s*(yes|yeah|yep|sure|ok|okay|please do|go ahead|do it|that'?s fine|sounds good)\b")
+
+
+def _amounts_cents(text: str) -> set[int]:
+    return {
+        int(m.group(1).replace(",", "")) * 100 + int((m.group(2) or "0").ljust(2, "0")) for m in _AMOUNT.finditer(text)
+    }
+
+
+def stated_amounts_cents(env: ToolEnv) -> set[int]:
+    """Amounts the customer asked for: named in their messages, or accepted ("yes") right after the assistant
+    offered one. The agent may refund only these, or the full invoice."""
+    amounts: set[int] = set()
+    for text in env.customer_said:
+        amounts |= _amounts_cents(text)
+    if env.customer_said and _AFFIRMATIVE.match(env.customer_said[-1].lower()):
+        amounts |= _amounts_cents(env.last_assistant)
+    return amounts
 
 
 def _usd(cents: int) -> float:
@@ -87,6 +109,12 @@ async def issue_refund(env: ToolEnv, args: IssueRefundArgs) -> dict[str, Any]:
                 "OUTSIDE_REFUND_WINDOW",
                 f"Invoice is older than the {limit.window_days}-day refund window for the {customer.tier} plan.",
                 hint="offer_escalation",
+            )
+        if cents != remaining and cents not in stated_amounts_cents(env):
+            raise ToolError(
+                "AMOUNT_NOT_CONFIRMED",
+                f"The customer hasn't asked for ${_usd(cents):.2f}. Don't pick an amount for them.",
+                hint="explain the limit and ask which amount they want",
             )
         if cents > limit.max_refund_cents:
             raise ToolError(

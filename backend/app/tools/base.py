@@ -27,6 +27,7 @@ ToolErrorCode = Literal[
     "REFUND_NOT_ELIGIBLE",
     "OUTSIDE_REFUND_WINDOW",
     "AMOUNT_EXCEEDS_LIMIT",
+    "AMOUNT_NOT_CONFIRMED",
     "INVALID_AMOUNT",
     "FIELD_NOT_ALLOWED",
     "INVALID_VALUE",
@@ -62,6 +63,8 @@ class ToolEnv:
     last_retrieval: dict[str, Any] | None = None
     escalation_reason: str = "agent_requested"
     recent_turns: list[dict[str, Any]] = field(default_factory=list)
+    customer_said: list[str] = field(default_factory=list)  # the customer's messages, oldest first, incl. this turn
+    last_assistant: str = ""  # what the assistant said last, for "yes" to an offered amount
 
     @classmethod
     async def load(cls, ctx: TurnContext, embedder: Embedder) -> "ToolEnv":

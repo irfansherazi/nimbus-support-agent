@@ -161,6 +161,8 @@ class AgentNodes:
         ):
             msgs.pop()
         env.recent_turns = [{"role": m.role, "content": m.content} for m in history[-6:]]
+        env.customer_said = [m.content for m in history if m.role == "user"] + [state["user_text"]]
+        env.last_assistant = next((m.content for m in reversed(history) if m.role == "assistant"), "")
         return {
             "messages": [*msgs, HumanMessage(state["user_text"])],
             "iterations": 0,

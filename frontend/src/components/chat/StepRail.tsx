@@ -9,6 +9,7 @@ const ERROR_TEXT: Record<string, string> = {
   REFUND_NOT_ELIGIBLE: "plan not eligible",
   OUTSIDE_REFUND_WINDOW: "outside refund window",
   AMOUNT_EXCEEDS_LIMIT: "over plan limit",
+  AMOUNT_NOT_CONFIRMED: "amount not confirmed",
   INVALID_AMOUNT: "invalid amount",
   INVALID_VALUE: "invalid value",
   TOOL_FAILED: "system didn't respond",

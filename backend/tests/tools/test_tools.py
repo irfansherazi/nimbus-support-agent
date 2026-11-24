@@ -20,16 +20,25 @@ def runner() -> ToolRunner:
     return ToolRunner(build_registry(), slow_seconds=0.01)
 
 
-async def env_for(pool, customer_id: str | None = None, chaos: dict | None = None) -> ToolEnv:
+async def env_for(
+    pool,
+    customer_id: str | None = None,
+    chaos: dict | None = None,
+    said: list[str] | None = None,
+    assistant_said: str = "",
+) -> ToolEnv:
     async with pool.connection() as c:
         s = await create_session(c)
         if customer_id:
             await set_customer(c, s.id, customer_id)
-    return await ToolEnv.load(make_ctx(pool=pool, session_id=s.id, chaos=chaos), HashEmbedder())
+    env = await ToolEnv.load(make_ctx(pool=pool, session_id=s.id, chaos=chaos), HashEmbedder())
+    env.customer_said = said or []
+    env.last_assistant = assistant_said
+    return env
 
 
-async def run(pool, customer_id, name, args):
-    env = await env_for(pool, customer_id)
+async def run(pool, customer_id, name, args, said: list[str] | None = None):
+    env = await env_for(pool, customer_id, said=said)
     return await runner().run(env, name, args, "call-1")
 
 
@@ -127,7 +136,13 @@ async def test_refund_happy_path(pool):
 
 
 async def test_enterprise_partial_refund_within_limit(pool):
-    out = await run(pool, "C-1002", "issue_refund", {"invoice_id": "INV-3101", "amount_usd": 1000, "reason": "x"})
+    out = await run(
+        pool,
+        "C-1002",
+        "issue_refund",
+        {"invoice_id": "INV-3101", "amount_usd": 1000, "reason": "x"},
+        said=["Please refund $1,000 of INV-3101"],
+    )
     assert out.ok
 
 
@@ -143,13 +158,14 @@ async def test_refund_idempotent_within_session(pool):
 
 async def test_refund_cumulative_cap_across_sessions(pool):
     args = {"invoice_id": "INV-2207", "amount_usd": 30, "reason": "x"}
-    assert (await run(pool, "C-1001", "issue_refund", args)).ok
-    out = await run(pool, "C-1001", "issue_refund", args)  # new session, new idempotency key
+    said = ["refund $30 please"]
+    assert (await run(pool, "C-1001", "issue_refund", args, said=said)).ok
+    out = await run(pool, "C-1001", "issue_refund", args, said=said)  # new session, new idempotency key
     assert out.error.code == "INVALID_AMOUNT"
 
 
 async def test_concurrent_refunds_never_exceed_invoice(pool):
-    envs = [await env_for(pool, "C-1001") for _ in range(4)]
+    envs = [await env_for(pool, "C-1001", said=["refund 30 dollars"]) for _ in range(4)]
     args = {"invoice_id": "INV-2207", "amount_usd": 30, "reason": "x"}
     outs = await asyncio.gather(*(runner().run(e, "issue_refund", args, "c") for e in envs))
     assert sum(o.ok for o in outs) == 1
@@ -229,3 +245,56 @@ def test_tool_schemas_are_openai_functions():
 async def test_verify_accepts_how_speech_to_text_writes_ids(pool, account_id, pin):
     out = await run(pool, None, "verify_customer", {"account_id": account_id, "pin": pin})
     assert out.ok, (account_id, pin, out.error and out.error.message)
+
+
+# ------------------------------------------------------------------ refund amount must be the customer's
+
+
+async def test_agent_cannot_pick_a_refund_amount_the_customer_never_asked_for(pool):
+    out = await run(
+        pool,
+        "C-1001",
+        "issue_refund",
+        {"invoice_id": "INV-2099", "amount_usd": 200, "reason": "capped"},
+        said=["I'm C-1001, PIN 4321. Refund the full $490 on invoice INV-2099."],
+    )
+    assert out.error.code == "AMOUNT_NOT_CONFIRMED"
+
+
+async def test_stated_partial_amount_is_allowed(pool):
+    out = await run(
+        pool,
+        "C-1001",
+        "issue_refund",
+        {"invoice_id": "INV-2099", "amount_usd": 200, "reason": "x"},
+        said=["Refund $200 on INV-2099 please"],
+    )
+    assert out.ok
+
+
+async def test_full_invoice_needs_no_stated_amount(pool):
+    out = await run(
+        pool,
+        "C-1001",
+        "issue_refund",
+        {"invoice_id": "INV-2207", "amount_usd": 49, "reason": "x"},
+        said=["refund INV-2207"],
+    )
+    assert out.ok
+
+
+async def test_yes_to_an_offered_amount_confirms_it(pool):
+    env = await env_for(
+        pool,
+        "C-1001",
+        said=["Refund the full $490 on INV-2099", "Yes please, go ahead"],
+        assistant_said="The Pro plan allows up to $200. Would you like a $200 refund instead?",
+    )
+    out = await runner().run(env, "issue_refund", {"invoice_id": "INV-2099", "amount_usd": 200, "reason": "x"}, "c")
+    assert out.ok
+
+
+async def test_plain_yes_without_an_offer_confirms_nothing(pool):
+    env = await env_for(pool, "C-1001", said=["Refund INV-2099", "yes"], assistant_said="Anything else?")
+    out = await runner().run(env, "issue_refund", {"invoice_id": "INV-2099", "amount_usd": 150, "reason": "x"}, "c")
+    assert out.error.code == "AMOUNT_NOT_CONFIRMED"
