@@ -219,3 +219,39 @@ async def _drain(bus: SessionBus, sid):
         return
     for e in await asyncio.wait_for(collect(), 2):
         yield e
+
+
+def test_sideband_url_is_a_websocket_url():
+    from app.voice.openai_realtime import OpenAIRealtimeTransport
+
+    t = OpenAIRealtimeTransport(fast_settings(), "rtc_abc")
+    assert t.url == "wss://api.openai.com/v1/realtime?call_id=rtc_abc"
+
+
+async def test_a_crashed_bridge_ends_the_call_and_tells_the_ui(pool):
+    sid = await new_session(pool)
+    bus = SessionBus()
+    broken = FakeTransport(hold_open=True)
+
+    async def fail_connect():
+        raise OSError("connect failed")
+
+    broken.connect = fail_connect  # type: ignore[method-assign]
+
+    async def fake_create_call(settings, offer_sdp, session):
+        return "v=0 answer", "rtc_test"
+
+    registry = VoiceRegistry(
+        pool=pool,
+        bus=bus,
+        runner=StubRunner(),
+        llm=ScriptedLLM(),
+        settings=fast_settings(),
+        call_factory=fake_create_call,
+        transport_factory=lambda s, c: broken,
+    )
+    await registry.start(sid, "v=0 offer")
+    await asyncio.sleep(0.05)
+    assert not registry.active(sid)
+    errors = [e async for e in _drain(bus, sid) if e.type == "error"]
+    assert errors and errors[-1].code == "VOICE_DROPPED"

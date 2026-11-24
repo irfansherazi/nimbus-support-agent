@@ -186,12 +186,28 @@ function applyEvent(state: SessionState, e: AgentEvent): SessionState {
     }
     case "transcript": {
       if (!e.final) return state;
-      if (e.role === "user") return { ...state, pendingVoiceUser: e.text };
-      const target = e.turn_id ?? lastVoiceTurnId(state.turns);
-      if (!target) return state;
+      if (!e.turn_id) {
+        // Legacy shape without a turn id: attach by position.
+        if (e.role === "user") return { ...state, pendingVoiceUser: e.text };
+        const target = lastVoiceTurnId(state.turns);
+        if (!target) return state;
+        return {
+          ...state,
+          turns: updateTurn(state.turns, target, (t) => ({ ...t, answer: e.text, interrupted: e.interrupted ?? false })),
+        };
+      }
+      // A voice turn may be pure small talk (no agent run), so a turn created by a transcript starts as answered.
+      const exists = state.turns.some((t) => t.turnId === e.turn_id);
+      const turns = exists
+        ? state.turns
+        : [...state.turns, { ...newTurn(e.turn_id, "voice"), status: "ok" as TurnStatus }];
       return {
         ...state,
-        turns: updateTurn(state.turns, target, (t) => ({ ...t, answer: e.text, interrupted: e.interrupted ?? false }), "voice"),
+        turns: updateTurn(turns, e.turn_id, (t) =>
+          e.role === "user"
+            ? { ...t, userText: e.text }
+            : { ...t, answer: e.text, interrupted: e.interrupted ?? false },
+        ),
       };
     }
     case "trace":

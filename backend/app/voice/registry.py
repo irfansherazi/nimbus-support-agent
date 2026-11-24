@@ -71,6 +71,11 @@ class VoiceRegistry:
             await bridge.run(history)
         except Exception:
             log.exception("voice bridge for %s crashed", session_id)
+            # Don't leave the browser talking to a call nobody is handling.
+            try:
+                await bridge.stop("VOICE_DROPPED", "Voice connection dropped. You can keep chatting.")
+            except Exception:
+                log.exception("could not end the call for %s", session_id)
         finally:
             self._calls.pop(session_id, None)
 

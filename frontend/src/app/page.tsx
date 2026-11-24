@@ -6,12 +6,16 @@ import { ErrorBanner } from "@/components/chat/ErrorBanner";
 import { MessageList } from "@/components/chat/MessageList";
 import { ObservabilityDrawer } from "@/components/drawer/ObservabilityDrawer";
 import { StatusBar } from "@/components/header/StatusBar";
+import { MicButton, VoicePanel } from "@/components/voice/VoiceControls";
 import { useSession } from "@/hooks/useSession";
+import { useVoice } from "@/hooks/useVoice";
 
 const DRAWER_KEY = "nimbus.drawerOpen";
 
 export default function Home() {
   const { state, stream, send, retry, newConversation } = useSession();
+  const voice = useVoice(state.sessionId);
+  const [voiceNoticeHidden, setVoiceNoticeHidden] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dismissedError, setDismissedError] = useState<unknown>(null);
 
@@ -35,7 +39,17 @@ export default function Home() {
   }
 
   const busy = state.turns.some((t) => t.status === "running");
-  const error = state.error && state.error !== dismissedError ? state.error : null;
+  const isVoiceError = (code?: string) => code === "VOICE_LIMIT" || code === "VOICE_DROPPED";
+  const error =
+    state.error && state.error !== dismissedError && !isVoiceError(state.error.code) ? state.error : null;
+
+  // The server ends idle or over-long calls; close our side and say why in the voice panel.
+  const voiceEnd = voice.end;
+  useEffect(() => {
+    if (voice.live && isVoiceError(state.error?.code)) void voiceEnd(state.error?.message);
+  }, [state.error, voice.live, voiceEnd]);
+  // A new conversation hangs up any call from the old one.
+  useEffect(() => () => void voiceEnd(), [state.sessionId, voiceEnd]);
 
   return (
     <div className="flex h-dvh flex-col">
@@ -60,7 +74,30 @@ export default function Home() {
                 onDismiss={() => setDismissedError(state.error)}
               />
             )}
-            <Composer onSend={(t) => void send(t)} busy={busy} />
+            {!voiceNoticeHidden && (
+              <VoicePanel
+                state={voice.state}
+                live={voice.live}
+                micBars={voice.micLevel}
+                agentBars={voice.agentLevel}
+                onEnd={() => void voice.end()}
+                onDismiss={() => setVoiceNoticeHidden(true)}
+              />
+            )}
+            <Composer
+              onSend={(t) => void send(t)}
+              busy={busy}
+              voiceSlot={
+                <MicButton
+                  live={voice.live}
+                  disabled={!state.sessionId}
+                  onStart={() => {
+                    setVoiceNoticeHidden(false);
+                    void voice.start();
+                  }}
+                />
+              }
+            />
           </div>
         </main>
         {drawerOpen && (

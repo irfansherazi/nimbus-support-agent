@@ -182,6 +182,28 @@ describe("sessionReducer", () => {
     s = sessionReducer(s, { kind: "clear_error" });
     expect(s.error).toBeNull();
   });
+
+  it("voice transcripts with turn ids build a turn even without an agent run (small talk)", () => {
+    const s = run(
+      init(),
+      ev({ turn_id: "v_a", type: "transcript", role: "user", text: "Hi there.", final: true, interrupted: false, channel: "voice" }),
+      ev({ turn_id: "v_a", type: "transcript", role: "assistant", text: "Hi! How can I help?", final: true, interrupted: false, channel: "voice" }),
+    );
+    expect(s.turns).toHaveLength(1);
+    expect(s.turns[0]).toMatchObject({ turnId: "v_a", channel: "voice", userText: "Hi there.", answer: "Hi! How can I help?", status: "ok" });
+  });
+
+  it("a late user transcript joins the agent turn that already started", () => {
+    const s = run(
+      init(),
+      ev({ turn_id: "v_b", type: "turn_started", channel: "voice" }),
+      ev({ turn_id: "v_b", type: "transcript", role: "user", text: "What's my refund limit?", final: true, interrupted: false, channel: "voice" }),
+      ev({ turn_id: "v_b", type: "turn_completed", status: "ok" }),
+      ev({ turn_id: "v_b", type: "transcript", role: "assistant", text: "Up to two hundred…", final: true, interrupted: true, channel: "voice" }),
+    );
+    expect(s.turns).toHaveLength(1);
+    expect(s.turns[0]).toMatchObject({ userText: "What's my refund limit?", answer: "Up to two hundred…", interrupted: true, status: "ok" });
+  });
 });
 
 const NO_CHAOS = { llm_timeout_next: false, llm_429_next: false, llm_outage_next: false, tool_fail_next: null, tool_slow: null };

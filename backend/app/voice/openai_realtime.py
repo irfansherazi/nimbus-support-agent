@@ -12,6 +12,7 @@ from app.config import Settings
 
 log = logging.getLogger(__name__)
 API = "https://api.openai.com/v1/realtime"
+SIDEBAND = "wss://api.openai.com/v1/realtime"
 
 
 class CallCreateError(RuntimeError):
@@ -54,10 +55,12 @@ class OpenAIRealtimeTransport:
         self.call_id = call_id
         self._ws: Any = None
 
+    @property
+    def url(self) -> str:
+        return f"{SIDEBAND}?call_id={self.call_id}"
+
     async def connect(self) -> None:
-        self._ws = await websockets.connect(
-            f"{API}?call_id={self.call_id}", additional_headers={"Authorization": f"Bearer {self._key}"}
-        )
+        self._ws = await websockets.connect(self.url, additional_headers={"Authorization": f"Bearer {self._key}"})
 
     async def send(self, event: dict[str, Any]) -> None:
         await self._ws.send(json.dumps(event))
