@@ -269,7 +269,10 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         };
       });
       const known = new Set(persisted.map((t) => t.turnId));
-      const running = state.turns.filter((t) => !known.has(t.turnId) && t.status === "running");
+      // Running turns aren't persisted yet; failed turns never are. Keep both so the user sees them.
+      const running = state.turns.filter(
+        (t) => !known.has(t.turnId) && (t.status === "running" || t.status === "failed"),
+      );
       return {
         ...state,
         sessionId: action.session.session_id,

@@ -96,7 +96,12 @@ export function useSession() {
 
   const send = useCallback(async (text: string, retryOf?: string) => {
     const id = sessionRef.current;
-    if (!id || !text.trim()) return;
+    if (!text.trim()) return;
+    if (!id) {
+      const error = { code: "NETWORK", message: "Can't reach the support service.", retryable: false };
+      dispatch({ kind: "local_error", error });
+      return;
+    }
     try {
       const { turnId } = await sendMessage(id, text.trim());
       dispatch({ kind: "local_send", turnId, text: text.trim(), retryOf });

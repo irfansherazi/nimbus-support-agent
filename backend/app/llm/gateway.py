@@ -6,6 +6,7 @@ Every LLM call in the agent goes through `complete` or `stream`, so resilience a
 
 import asyncio
 import json
+import logging
 import random
 import time
 import uuid
@@ -266,10 +267,14 @@ def build_gateway(settings: Settings, budget: BudgetGuard | None = None) -> LLMG
     from langchain_anthropic import ChatAnthropic
     from langchain_openai import ChatOpenAI
 
+    if not settings.openai_api_key:
+        logging.getLogger(__name__).warning("OPENAI_API_KEY not set: every chat call will fail (the UI shows Retry)")
+    openai_key = settings.openai_api_key or "missing-openai-key"
+
     def openai_model(name: str, temperature: float) -> ChatOpenAI:
         return ChatOpenAI(
             model=name,
-            api_key=SecretStr(settings.openai_api_key),
+            api_key=SecretStr(openai_key),
             max_retries=0,
             stream_usage=True,
             temperature=temperature,

@@ -68,17 +68,42 @@ export function subscribe(
   onEvent: (e: AgentEvent) => void,
   onStatus: (s: StreamStatus) => void,
 ): () => void {
-  const source = new EventSource(`${apiUrl}/api/sessions/${sessionId}/events?last_event_id=${lastEventSeq}`);
-  onStatus("connecting");
-  const handler = (msg: MessageEvent<string>) => {
-    try {
-      onEvent(JSON.parse(msg.data) as AgentEvent);
-    } catch {
-      // A malformed frame is dropped; the reducer's seq check keeps state consistent.
-    }
+  let source: EventSource | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let closed = false;
+  let lastSeen = lastEventSeq;
+
+  const open = () => {
+    if (closed) return;
+    onStatus("connecting");
+    const es = new EventSource(`${apiUrl}/api/sessions/${sessionId}/events?last_event_id=${lastSeen}`);
+    source = es;
+    // Frames carry no `event:` name (an "error"-named event would collide with EventSource's own error event).
+    es.onmessage = (msg: MessageEvent<string>) => {
+      try {
+        const event = JSON.parse(msg.data) as AgentEvent;
+        lastSeen = Math.max(lastSeen, event.seq);
+        onEvent(event);
+      } catch {
+        // A malformed frame is dropped; the reducer's seq check keeps state consistent.
+      }
+    };
+    es.onopen = () => onStatus("open");
+    es.onerror = () => {
+      if (es.readyState === EventSource.OPEN) return;
+      onStatus("reconnecting");
+      if (es.readyState === EventSource.CLOSED) {
+        // The browser gave up (e.g. the server was down at first connect): reopen ourselves.
+        es.close();
+        retryTimer = setTimeout(open, 2000);
+      }
+    };
   };
-  for (const type of EVENT_TYPES) source.addEventListener(type, handler as EventListener);
-  source.onopen = () => onStatus("open");
-  source.onerror = () => onStatus("reconnecting");
-  return () => source.close();
+
+  open();
+  return () => {
+    closed = true;
+    if (retryTimer) clearTimeout(retryTimer);
+    source?.close();
+  };
 }

@@ -159,6 +159,18 @@ describe("sessionReducer", () => {
     expect(s.error?.code).toBe("RATE_LIMITED");
     expect(s.turns).toEqual([]);
   });
+
+  it("hydrate keeps a failed turn (never persisted) so the user still sees what didn't go through", () => {
+    let s = run(
+      init(),
+      { kind: "local_send", turnId: "t1", text: "hi" },
+      ev({ type: "turn_started", channel: "chat" }),
+      ev({ type: "error", code: "LLM_UNAVAILABLE", retryable: true, message: "down" }),
+      ev({ type: "turn_completed", status: "failed" }),
+    );
+    s = sessionReducer(s, { kind: "hydrate", session: view() });
+    expect(s.turns.map((t) => [t.turnId, t.userText, t.status])).toEqual([["t1", "hi", "failed"]]);
+  });
 });
 
 function view(over: Partial<SessionView> = {}): SessionView {

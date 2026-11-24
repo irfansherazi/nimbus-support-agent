@@ -28,7 +28,9 @@ async def sse_events(
     async for event in bus.subscribe(session_id, last_seq):
         if await request.is_disconnected():
             return
-        yield {"id": str(event.seq), "event": event.type, "data": event.model_dump_json()}
+        # No `event:` field: an event named "error" would collide with EventSource's own error event. The type is in
+        # the JSON payload, and the client uses onmessage.
+        yield {"id": str(event.seq), "data": event.model_dump_json()}
 
 
 @router.get("/{session_id}/events")
