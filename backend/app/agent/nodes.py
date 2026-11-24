@@ -161,7 +161,10 @@ class AgentNodes:
         ):
             msgs.pop()
         env.recent_turns = [{"role": m.role, "content": m.content} for m in history[-6:]]
-        env.customer_said = [m.content for m in history if m.role == "user"] + [state["user_text"]]
+        said = [m.content for m in history if m.role == "user"]
+        # In voice, user_text is consult_agent's argument, written by the Realtime model: only the customer's own
+        # (transcribed) words may count as consent for an amount. The bridge stores the transcript first.
+        env.customer_said = said if ctx.channel == "voice" else [*said, state["user_text"]]
         env.last_assistant = next((m.content for m in reversed(history) if m.role == "assistant"), "")
         return {
             "messages": [*msgs, HumanMessage(state["user_text"])],

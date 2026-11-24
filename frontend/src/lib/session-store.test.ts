@@ -204,12 +204,31 @@ describe("sessionReducer", () => {
     expect(s.turns).toHaveLength(1);
     expect(s.turns[0]).toMatchObject({ userText: "What's my refund limit?", answer: "Up to two hundred…", interrupted: true, status: "ok" });
   });
+
+  it("a refresh never rewinds the event sequence (in-flight events would be dropped)", () => {
+    // Review M7: hydrate runs after every turn while later events may still be in flight.
+    let s = sessionReducer(init(), { kind: "hydrate", session: view({ last_event_seq: 5 }) });
+    s = run(s, ev({ seq: 9, type: "turn_started", channel: "chat" }) as never);
+    s = sessionReducer(s, { kind: "hydrate", session: view({ last_event_seq: 7 }) });
+    expect(s.lastSeq).toBe(9);
+  });
+
+  it("a server restart (new bus epoch) resets the event sequence", () => {
+    let s = sessionReducer(init(), { kind: "hydrate", session: view({ last_event_seq: 40 }) });
+    s = sessionReducer(s, { kind: "hydrate", session: view({ last_event_seq: 2, bus_epoch: "e2" }) });
+    expect(s.lastSeq).toBe(2);
+  });
+
+  it("errors remember the event seq they came from", () => {
+    const s = run(init(), ev({ type: "error", code: "VOICE_LIMIT", retryable: false, message: "silence" }));
+    expect(s.error?.seq).toBe(s.lastSeq);
+  });
 });
 
 const NO_CHAOS = { llm_timeout_next: false, llm_429_next: false, llm_outage_next: false, tool_fail_next: null, tool_slow: null };
 
 function view(over: Partial<SessionView> = {}): SessionView {
-  return { session_id: "s1", customer: null, escalation: null, messages: [], last_event_seq: 0, chaos: NO_CHAOS, ...over };
+  return { session_id: "s1", customer: null, escalation: null, messages: [], last_event_seq: 0, bus_epoch: "e1", chaos: NO_CHAOS, ...over };
 }
 
 function msg(id: number, turn: string, channel: "chat" | "voice", role: "user" | "assistant", content: string, interrupted = false) {

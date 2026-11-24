@@ -39,6 +39,7 @@ class SessionView(BaseModel):
     escalation: Escalation | None
     messages: list[Message]
     last_event_seq: int  # pass as ?last_event_id= when opening the event stream, so nothing is missed
+    bus_epoch: str  # identifies the server process; a change means sequence numbers restarted
     chaos: ChaosState  # fault-injection flags still pending (one-shot flags clear once used)
 
 
@@ -90,6 +91,8 @@ async def create(request: Request, services: ServicesDep) -> CreatedSession:
 
 @router.get("/{session_id}")
 async def read(session_id: UUID, services: ServicesDep) -> SessionView:
+    # Read the sequence BEFORE the data: any event published meanwhile has a higher seq and still gets delivered.
+    last_seq = services.bus.last_seq(session_id)
     async with services.pool.connection() as conn:
         session = await get_session(conn, session_id)
         if session is None:
@@ -102,7 +105,8 @@ async def read(session_id: UUID, services: ServicesDep) -> SessionView:
         customer=CustomerView(**customer.model_dump()) if customer else None,
         escalation=session.escalation,
         messages=messages,
-        last_event_seq=services.bus.last_seq(session_id),
+        last_event_seq=last_seq,
+        bus_epoch=services.bus.epoch,
         chaos=ChaosState(**chaos),
     )
 

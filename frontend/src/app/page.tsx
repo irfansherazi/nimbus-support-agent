@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Composer } from "@/components/chat/Composer";
 import { ErrorBanner } from "@/components/chat/ErrorBanner";
 import { MessageList } from "@/components/chat/MessageList";
@@ -9,6 +9,7 @@ import { StatusBar } from "@/components/header/StatusBar";
 import { MicButton, VoicePanel } from "@/components/voice/VoiceControls";
 import { useSession } from "@/hooks/useSession";
 import { useVoice } from "@/hooks/useVoice";
+import { isVoiceError, voiceErrorToHandle } from "@/lib/voice/voice-errors";
 
 const DRAWER_KEY = "nimbus.drawerOpen";
 
@@ -39,14 +40,18 @@ export default function Home() {
   }
 
   const busy = state.turns.some((t) => t.status === "running");
-  const isVoiceError = (code?: string) => code === "VOICE_LIMIT" || code === "VOICE_DROPPED";
   const error =
     state.error && state.error !== dismissedError && !isVoiceError(state.error.code) ? state.error : null;
 
-  // The server ends idle or over-long calls; close our side and say why in the voice panel.
+  // The server ends idle or over-long calls; close our side and say why in the voice panel. Each server error is
+  // acted on once (by its event seq), so a stale one can't end the next call.
   const voiceEnd = voice.end;
+  const handledVoiceErrorSeq = useRef(0);
   useEffect(() => {
-    if (voice.live && isVoiceError(state.error?.code)) void voiceEnd(state.error?.message);
+    const voiceError = voiceErrorToHandle(state.error, handledVoiceErrorSeq.current);
+    if (!voiceError) return;
+    handledVoiceErrorSeq.current = voiceError.seq ?? handledVoiceErrorSeq.current;
+    if (voice.live) void voiceEnd(voiceError.message);
   }, [state.error, voice.live, voiceEnd]);
   // A new conversation hangs up any call from the old one.
   useEffect(() => () => void voiceEnd(), [state.sessionId, voiceEnd]);

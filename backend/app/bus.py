@@ -4,6 +4,7 @@ Single-instance by design (see README trade-offs): a multi-instance deploy would
 """
 
 import asyncio
+import uuid
 from collections import defaultdict, deque
 from collections.abc import AsyncIterator
 from uuid import UUID
@@ -13,6 +14,7 @@ from app.events import AgentEvent
 
 class SessionBus:
     def __init__(self, buffer_size: int = 500) -> None:
+        self.epoch = uuid.uuid4().hex[:12]  # changes when the process restarts (sequence numbers start over)
         self._buffer_size = buffer_size
         self._buffers: dict[UUID, deque[AgentEvent]] = defaultdict(lambda: deque(maxlen=self._buffer_size))
         self._seq: dict[UUID, int] = defaultdict(int)

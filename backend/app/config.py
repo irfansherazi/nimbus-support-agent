@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     voice_idle_seconds: int = 60
     voice_history_turns: int = 10
 
+    # Public demo: reset the shared mock CRM (refunds, customer edits) every N minutes; 0 disables
+    demo_reset_minutes: int = 60
+
 
 @lru_cache
 def get_settings() -> Settings:

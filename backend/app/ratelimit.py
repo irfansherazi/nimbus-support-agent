@@ -24,9 +24,13 @@ class SlidingWindowLimiter:
         return True
 
 
-def client_ip(headers: Mapping[str, str], peer: str | None) -> str:
-    """The original client address: the first X-Forwarded-For hop (Railway/Vercel sit behind proxies)."""
-    forwarded = headers.get("x-forwarded-for")
+def client_ip(headers: Mapping[str, str], peer: str | None, trusted_hops: int = 1) -> str:
+    """The client's address as seen by our proxy (Railway appends it to X-Forwarded-For).
+
+    Entries to the left of the ones our proxies added are whatever the caller sent, so they can't be trusted: with
+    `trusted_hops` proxies in front, the client is the trusted_hops-th entry from the right.
+    """
+    forwarded = [h.strip() for h in (headers.get("x-forwarded-for") or "").split(",") if h.strip()]
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return forwarded[-trusted_hops] if len(forwarded) >= trusted_hops else forwarded[0]
     return peer or "unknown"

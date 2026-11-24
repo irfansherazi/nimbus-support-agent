@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -8,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import events_stream, schema, sessions, voice
 from app.api.deps import Services, build_production_services
 from app.config import Settings, get_settings
+from app.demo import reset_periodically
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -19,9 +21,16 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         svc = services or await build_production_services(settings)
         app.state.services = svc
+        reset_task = (
+            asyncio.create_task(reset_periodically(svc.pool, settings.demo_reset_minutes))
+            if services is None and settings.demo_reset_minutes > 0
+            else None
+        )
         try:
             yield
         finally:
+            if reset_task is not None:
+                reset_task.cancel()
             await svc.runner.shutdown()
             voice = svc.extras.get("voice")
             if voice is not None:

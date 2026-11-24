@@ -25,6 +25,9 @@ async def test_new_session_view_is_empty(api):
     view = (await client.get(f"/api/sessions/{await new_session(client)}")).json()
     assert view["customer"] is None and view["escalation"] is None and view["messages"] == []
     assert view["last_event_seq"] == 0
+    # Review M7: the bus epoch identifies this server process, so the client can tell a restart from a refresh.
+    again = (await client.get(f"/api/sessions/{view['session_id']}")).json()
+    assert view["bus_epoch"] and again["bus_epoch"] == view["bus_epoch"]
 
 
 async def test_post_message_streams_turn(api):

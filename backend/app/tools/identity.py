@@ -1,4 +1,6 @@
 import re
+import time
+from collections import defaultdict, deque
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -7,7 +9,19 @@ from app.store.customers import check_pin, get_customer
 from app.store.sessions import incr_verify_failures, set_customer
 from app.tools.base import ToolEnv, ToolError
 
-MAX_VERIFY_FAILURES = 3
+MAX_VERIFY_FAILURES = 3  # per conversation
+ACCOUNT_MAX_FAILURES = 10  # per account per hour, across all conversations (single instance, in memory)
+ACCOUNT_WINDOW_S = 3600.0
+ACCOUNT_FAILURES: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _account_locked(account_id: str) -> bool:
+    q = ACCOUNT_FAILURES[account_id]
+    while q and q[0] <= time.monotonic() - ACCOUNT_WINDOW_S:
+        q.popleft()
+    return len(q) >= ACCOUNT_MAX_FAILURES
+
+
 _DIGIT_WORDS = {
     "zero": "0", "oh": "0", "one": "1", "two": "2", "three": "3", "four": "4",
     "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
@@ -44,10 +58,13 @@ async def verify_customer(env: ToolEnv, args: VerifyCustomerArgs) -> dict[str, A
             "VERIFICATION_LOCKED", "Too many failed attempts in this conversation.", hint="offer_escalation"
         )
     account_id = normalize_account_id(args.account_id)
+    if _account_locked(account_id):
+        raise ToolError("VERIFICATION_LOCKED", "Too many failed attempts for this account.", hint="offer_escalation")
     async with env.pool.connection() as conn:
         customer = await get_customer(conn, account_id)
         # An unknown account and a wrong PIN look identical, so the tool can't be used to probe account IDs.
         if customer is None or not await check_pin(conn, account_id, normalize_pin(args.pin)):
+            ACCOUNT_FAILURES[account_id].append(time.monotonic())
             env.session.verify_failures = await incr_verify_failures(conn, env.session.id)
             if env.session.verify_failures >= MAX_VERIFY_FAILURES:
                 raise ToolError("VERIFICATION_LOCKED", "Too many failed attempts.", hint="offer_escalation")

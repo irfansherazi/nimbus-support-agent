@@ -1129,6 +1129,10 @@
             "type": "integer",
             "title": "Last Event Seq"
           },
+          "bus_epoch": {
+            "type": "string",
+            "title": "Bus Epoch"
+          },
           "chaos": {
             "$ref": "#/components/schemas/ChaosState"
           }
@@ -1140,6 +1144,7 @@
           "escalation",
           "messages",
           "last_event_seq",
+          "bus_epoch",
           "chaos"
         ],
         "title": "SessionView"

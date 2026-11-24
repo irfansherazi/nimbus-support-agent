@@ -85,6 +85,7 @@ def make_bridge(pool, sid, transport, runner=None, settings=None, drift: bool = 
         llm=llm,
         settings=settings or fast_settings(),
         watchdog_interval_s=0.02,
+        transcript_wait_s=0.3,
     )
 
 
@@ -305,3 +306,80 @@ class OrderedTransport(FakeTransport):
             self.log.append(("in", e))
             yield e
             await asyncio.sleep(0)
+
+
+async def test_consult_waits_for_this_turns_transcript_before_running_the_agent(pool):
+    # The transcript can arrive after the tool call (spike); consent checks need it stored first.
+    sid = await new_session(pool)
+    seen: list[list[str]] = []
+
+    class CheckingRunner(StubRunner):
+        async def run_turn(self, session_id, text, channel, **kw):
+            async with pool.connection() as c:
+                seen.append([m.content for m in await recent_messages(c, session_id, 10)])
+            return await super().run_turn(session_id, text, channel, **kw)
+
+    events = [
+        {"type": "input_audio_buffer.committed", "item_id": "u1"},
+        {"type": "response.created", "response": {"id": "r1"}},
+        {
+            "type": "response.function_call_arguments.done",
+            "response_id": "r1",
+            "call_id": "c1",
+            "name": "consult_agent",
+            "arguments": '{"user_request": "refund 200"}',
+        },
+        {"type": "response.done", "response": {"id": "r1", "output": [{"type": "message"}, {"type": "function_call"}]}},
+        {"type": "spike.pause"},
+        {
+            "type": "conversation.item.input_audio_transcription.completed",
+            "item_id": "u1",
+            "transcript": "Refund $200 on INV-2099 please.",
+        },
+    ]
+    await make_bridge(pool, sid, OrderedTransport(events), CheckingRunner()).run(history=[])
+    assert seen == [["Refund $200 on INV-2099 please."]]
+
+
+async def test_replies_without_a_consult_are_checked_for_unsourced_claims(pool):
+    # Review I5: the risky path is the voice model answering on its own (e.g. from injected history).
+    sid = await new_session(pool)
+    await make_bridge(pool, sid, FakeTransport(fixture_events("greeting.jsonl")), drift=True).run(history=[])
+    async with pool.connection() as c:
+        spans = [s for t in await list_traces(c, sid) for s in t["spans"] if s["name"] == "voice_drift"]
+    assert spans and all(s["attrs"]["mode"] == "unconsulted" for s in spans) and spans[0]["attrs"]["drift"] is True
+
+
+async def test_answer_response_cannot_call_the_tool_again(pool):
+    sid = await new_session(pool)
+    transport = FakeTransport(fixture_events("consult.jsonl"))
+    await make_bridge(pool, sid, transport).run(history=[])
+    answer = [e for e in transport.sent if e["type"] == "response.create" and not e.get("response", {}).get("metadata")]
+    assert answer and answer[-1]["response"]["tool_choice"] == "none"
+
+
+async def test_a_rejected_response_request_does_not_block_the_answer(pool):
+    sid = await new_session(pool)
+    events = [
+        {"type": "input_audio_buffer.committed", "item_id": "u1"},
+        {"type": "response.created", "response": {"id": "r1"}},
+        {
+            "type": "response.function_call_arguments.done",
+            "response_id": "r1",
+            "call_id": "c1",
+            "name": "consult_agent",
+            "arguments": '{"user_request": "hi"}',
+        },
+        {"type": "conversation.item.input_audio_transcription.completed", "item_id": "u1", "transcript": "hi"},
+        {"type": "response.done", "response": {"id": "r1", "output": [{"type": "function_call"}]}},
+        # our holding-line request is rejected: no response.created will ever come for it
+        {"type": "error", "error": {"code": "conversation_already_has_active_response", "message": "busy"}},
+        {"type": "spike.pause"},
+    ]
+    transport = OrderedTransport(events)
+    await asyncio.wait_for(make_bridge(pool, sid, transport).run(history=[]), 3)
+    assert [
+        e
+        for d, e in transport.log
+        if d == "out" and e["type"] == "response.create" and not e.get("response", {}).get("metadata")
+    ]

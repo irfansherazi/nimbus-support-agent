@@ -49,9 +49,17 @@ async def _ingest(use_hash: bool = False) -> None:
 
 
 async def _release() -> None:
-    """Deploy-time step: migrate, re-seed (refreshes relative dates), ingest any changed policy docs."""
+    """Deploy-time step: migrate, reset the demo CRM (refunds cleared, seed re-applied so relative dates refresh),
+    ingest any changed policy docs."""
+    from app.demo import reset_demo_data
+
     await _migrate()
-    await _seed()
+    pool = await create_pool(get_settings().database_url)
+    try:
+        await reset_demo_data(pool)
+        print("demo data: reset")
+    finally:
+        await pool.close()
     await _ingest()
 
 

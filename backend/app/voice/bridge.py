@@ -26,7 +26,7 @@ from app.models import Channel, Message
 from app.observability.trace import LLMUsage, TraceRecorder
 from app.store.sessions import add_message
 from app.store.traces import append_trace, merge_latency
-from app.voice.drift import DRIFT_SYSTEM, DriftResult
+from app.voice.drift import CLAIM_SYSTEM, DRIFT_SYSTEM, DriftResult
 from app.voice.handler import (
     Effect,
     RealtimeError,
@@ -43,6 +43,7 @@ from app.voice.session_config import history_items
 
 log = logging.getLogger(__name__)
 
+TRANSCRIPT_WAIT_S = 3.0
 CONSULT_FAILED = "I'm having trouble reaching our systems right now. Please try again in a moment."
 IDLE_MESSAGE = "Voice session ended after a minute of silence. You can keep chatting, or start a new call."
 MAX_MESSAGE = "Voice sessions are limited to 10 minutes. You can keep chatting, or start a new call."
@@ -117,6 +118,7 @@ class VoiceBridge:
         settings: Settings,
         budget: Any = None,
         watchdog_interval_s: float = 0.5,
+        transcript_wait_s: float = TRANSCRIPT_WAIT_S,
     ) -> None:
         self.session_id = session_id
         self.transport = transport
@@ -133,6 +135,8 @@ class VoiceBridge:
         self._watchdog_interval = watchdog_interval_s
         self._started = self._last_activity = time.monotonic()
         self._ended = False
+        self._transcript_wait_s = transcript_wait_s
+        self._transcribed: dict[str, asyncio.Event] = {}  # turn -> the customer's transcript is stored
         # Realtime allows one active response at a time: track them so the answer waits for a holding line.
         self._active_responses = 0
         self._requested_responses = 0
@@ -187,6 +191,10 @@ class VoiceBridge:
                 self._active_responses += 1
         elif event_type == "response.done":
             self._active_responses = max(0, self._active_responses - 1)
+        elif event_type == "error" and self._requested_responses > 0:
+            # Most likely one of our response.create requests was rejected: it will never be created or done.
+            self._requested_responses -= 1
+            self._active_responses = max(0, self._active_responses - 1)
         if self._active_responses == 0:
             self._no_active_response.set()
         else:
@@ -211,10 +219,12 @@ class VoiceBridge:
     async def _apply(self, effect: Effect) -> None:
         if isinstance(effect, StoreUserTranscript):
             await self._store(effect.turn_id, "user", effect.text, interrupted=False)
+            self._transcript_event(effect.turn_id).set()
         elif isinstance(effect, StoreAssistantTranscript):
             await self._store(effect.turn_id, "assistant", effect.text, interrupted=effect.interrupted)
-            if effect.turn_id in self.agent_answers:
-                self._spawn(self._check_drift(effect.turn_id, effect.text))
+            # Consulted answers are compared with the agent's; replies the voice gave on its own are checked for
+            # unsourced policy or account claims (spec §8.2a).
+            self._spawn(self._check_drift(effect.turn_id, effect.text))
         elif isinstance(effect, SpeakHoldingLine):
             await self._request_response(HOLDING_LINE_REQUEST)
         elif isinstance(effect, RunConsult):
@@ -250,7 +260,15 @@ class VoiceBridge:
             TranscriptEvent(turn_id=turn_id, role=role, text=text, interrupted=interrupted, channel="voice"),  # type: ignore[arg-type]
         )
 
+    def _transcript_event(self, turn_id: str) -> asyncio.Event:
+        return self._transcribed.setdefault(turn_id, asyncio.Event())
+
     async def _consult(self, effect: RunConsult) -> None:
+        # The transcript can arrive after the tool call; the agent needs the customer's own words in history.
+        try:
+            await asyncio.wait_for(self._transcript_event(effect.turn_id).wait(), self._transcript_wait_s)
+        except TimeoutError:
+            log.info("no transcript for %s yet; running the agent without it", effect.turn_id)
         try:
             result = await self.runner.run_turn(
                 self.session_id,
@@ -280,12 +298,19 @@ class VoiceBridge:
                 await asyncio.wait_for(self._no_active_response.wait(), 15)
             except TimeoutError:
                 log.info("speaking the answer for %s without waiting any longer", effect.turn_id)
-            await self._request_response({"type": "response.create"})
+            # tool_choice none: the voice must speak this answer, not call consult_agent again.
+            await self._request_response({"type": "response.create", "response": {"tool_choice": "none"}})
         except Exception:
             log.info("call ended before the agent's answer could be spoken (%s)", effect.turn_id)
 
     async def _check_drift(self, turn_id: str, spoken: str) -> None:
-        agent = self.agent_answers.get(turn_id, "")
+        agent = self.agent_answers.get(turn_id)
+        mode = "consulted" if agent is not None else "unconsulted"
+        prompt = (
+            [SystemMessage(DRIFT_SYSTEM), HumanMessage(f"ANSWER:\n{agent}\n\nSAID:\n{spoken}")]
+            if agent is not None
+            else [SystemMessage(CLAIM_SYSTEM), HumanMessage(f"SAID:\n{spoken}")]
+        )
         ctx = TurnContext(
             session_id=self.session_id,
             turn_id=turn_id,
@@ -297,16 +322,13 @@ class VoiceBridge:
             chaos=MemoryChaosStore(),
         )
         try:
-            result: DriftResult = await self.llm.complete(
-                ctx,
-                "voice_drift",
-                [SystemMessage(DRIFT_SYSTEM), HumanMessage(f"ANSWER:\n{agent}\n\nSAID:\n{spoken}")],
-                schema=DriftResult,
-            )
+            result: DriftResult = await self.llm.complete(ctx, "voice_drift", prompt, schema=DriftResult)
         except LLMError:
             log.warning("drift check unavailable for %s", turn_id)
             return
-        ctx.trace.add_span("voice_drift", "voice", drift=result.drift, reason=result.reason, said=spoken, answer=agent)
+        ctx.trace.add_span(
+            "voice_drift", "voice", mode=mode, drift=result.drift, reason=result.reason, said=spoken, answer=agent
+        )
         async with self.pool.connection() as conn:
             await append_trace(
                 conn,

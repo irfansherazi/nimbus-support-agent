@@ -298,3 +298,30 @@ async def test_plain_yes_without_an_offer_confirms_nothing(pool):
     env = await env_for(pool, "C-1001", said=["Refund INV-2099", "yes"], assistant_said="Anything else?")
     out = await runner().run(env, "issue_refund", {"invoice_id": "INV-2099", "amount_usd": 150, "reason": "x"}, "c")
     assert out.error.code == "AMOUNT_NOT_CONFIRMED"
+
+
+async def test_plan_limit_is_per_invoice_across_sessions(pool):
+    # Review C1: $200 + $200 on a $490 Pro invoice must not get past the $200-per-invoice limit.
+    args = {"invoice_id": "INV-2099", "amount_usd": 200, "reason": "x"}
+    said = ["Refund $200 on INV-2099"]
+    assert (await run(pool, "C-1001", "issue_refund", args, said=said)).ok
+    second = await run(pool, "C-1001", "issue_refund", args, said=said)  # new conversation
+    assert second.error.code == "AMOUNT_EXCEEDS_LIMIT" and "$0.00" in second.error.message
+    rest = await run(pool, "C-1001", "issue_refund", {**args, "amount_usd": 290}, said=["refund INV-2099"])
+    assert rest.error.code == "AMOUNT_EXCEEDS_LIMIT"
+    async with pool.connection() as c:
+        assert await refunded_total_cents(c, "INV-2099") == 20000
+
+
+async def test_account_locks_after_repeated_failures_across_sessions(pool):
+    # Review I4: per-session locks alone let fresh sessions keep guessing a 4-digit PIN.
+    from app.tools import identity
+
+    identity.ACCOUNT_FAILURES.clear()
+    for _ in range(identity.ACCOUNT_MAX_FAILURES):
+        out = await run(pool, None, "verify_customer", {"account_id": "C-1008", "pin": "0000"})
+        assert out.error.code in ("INVALID_CREDENTIALS", "VERIFICATION_LOCKED")
+    out = await run(pool, None, "verify_customer", {"account_id": "C-1008", "pin": "5566"})  # right PIN, too late
+    assert out.error.code == "VERIFICATION_LOCKED"
+    assert (await run(pool, None, "verify_customer", {"account_id": "C-1001", "pin": "4321"})).ok  # other accounts fine
+    identity.ACCOUNT_FAILURES.clear()

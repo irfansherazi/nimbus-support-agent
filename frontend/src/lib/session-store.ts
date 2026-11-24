@@ -34,6 +34,7 @@ export interface ErrorView {
   code: string;
   message: string;
   retryable: boolean;
+  seq?: number; // the event it came from (absent for local errors)
 }
 
 export interface TurnView {
@@ -64,6 +65,7 @@ export interface SessionState {
   needsRefresh: boolean;
   pendingVoiceUser: string | null;
   chaos: ChaosState;
+  busEpoch: string | null; // the server process the sequence numbers belong to
 }
 
 export const NO_CHAOS: ChaosState = {
@@ -95,6 +97,7 @@ export function initialState(sessionId: string | null): SessionState {
     needsRefresh: false,
     pendingVoiceUser: null,
     chaos: NO_CHAOS,
+    busEpoch: null,
   };
 }
 
@@ -222,7 +225,7 @@ function applyEvent(state: SessionState, e: AgentEvent): SessionState {
         })),
       };
     case "error": {
-      const error = { code: e.code, message: e.message, retryable: e.retryable };
+      const error = { code: e.code, message: e.message, retryable: e.retryable, seq: e.seq };
       const turn = state.turns.find((t) => t.turnId === turnId);
       return {
         ...state,
@@ -307,7 +310,13 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         customer: action.session.customer ?? null,
         escalation: action.session.escalation ?? null,
         turns: [...persisted, ...running],
-        lastSeq: action.session.last_event_seq,
+        // Never rewind within the same server process (events still in flight would be dropped as duplicates);
+        // a new bus epoch means the server restarted and its sequence numbers started over.
+        lastSeq:
+          state.busEpoch !== null && state.busEpoch === action.session.bus_epoch
+            ? Math.max(state.lastSeq, action.session.last_event_seq)
+            : action.session.last_event_seq,
+        busEpoch: action.session.bus_epoch,
         chaos: action.session.chaos ?? NO_CHAOS,
         needsRefresh: false,
         usageTotal: Math.max(state.usageTotal, persisted.reduce((s, t) => s + (t.usage?.turn_cost_usd ?? 0), 0)),

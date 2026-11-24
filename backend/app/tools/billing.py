@@ -94,7 +94,8 @@ async def issue_refund(env: ToolEnv, args: IssueRefundArgs) -> dict[str, Any]:
                 "already_processed": True,
             }
 
-        remaining = invoice["amount_cents"] - await refunded_total_cents(conn, args.invoice_id)
+        already = await refunded_total_cents(conn, args.invoice_id)
+        remaining = invoice["amount_cents"] - already
         if cents <= 0 or cents > remaining:
             raise ToolError(
                 "INVALID_AMOUNT", f"Amount must be more than $0 and at most ${_usd(remaining):.2f} for this invoice."
@@ -116,10 +117,14 @@ async def issue_refund(env: ToolEnv, args: IssueRefundArgs) -> dict[str, Any]:
                 f"The customer hasn't asked for ${_usd(cents):.2f}. Don't pick an amount for them.",
                 hint="explain the limit and ask which amount they want",
             )
-        if cents > limit.max_refund_cents:
+        # The plan limit applies per invoice, across all conversations (refunds.md: "cannot be combined").
+        allowed = max(limit.max_refund_cents - already, 0)
+        if cents > allowed:
             raise ToolError(
                 "AMOUNT_EXCEEDS_LIMIT",
-                f"The {customer.tier} plan allows refunds up to ${_usd(limit.max_refund_cents):.2f}.",
+                f"The {customer.tier} plan allows refunds up to ${_usd(limit.max_refund_cents):.2f} per invoice; "
+                f"${_usd(already):.2f} has already been refunded on this invoice, "
+                f"so at most ${_usd(allowed):.2f} more.",
                 hint="offer a refund within the limit or escalation",
             )
         refund, _ = await record_refund(

@@ -227,3 +227,35 @@ async def test_history_is_loaded_into_prompts(graph_env):
     await run_agent(build_graph(deps), deps, ctx, await ToolEnv.load(ctx, deps.embedder), "what's my name?")
     respond_msgs = next(c for c in llm.calls if c.purpose == "respond").messages
     assert any("my name is Dana" in str(m.content) for m in respond_msgs)
+
+
+async def test_voice_consent_comes_from_what_the_customer_said_not_the_voice_models_paraphrase(graph_env):
+    # Review I2: in voice, user_text is consult_agent's argument, written by the Realtime model.
+    from app.store.sessions import add_message
+
+    async with graph_env.pool.connection() as c:
+        s = await create_session(c)
+        await set_customer(c, s.id, "C-1001")
+        await add_message(
+            c, session_id=s.id, turn_id="v_1", channel="voice", role="user", content="hmm, what can you do?"
+        )
+    paraphrase = "Customer wants the $200 refund on INV-2099"
+    llm = ScriptedLLM(
+        classify=[CR("account_action")],
+        agent=[tool_call("issue_refund", invoice_id="INV-2099", amount_usd=200, reason="x"), AIMessage("")],
+        respond=["Could you confirm the amount you'd like refunded?"],
+    )
+    ctx = make_ctx(settings=graph_env.settings, pool=graph_env.pool, session_id=s.id, channel="voice")
+    deps = AgentDeps(llm=llm, runner=ToolRunner(build_registry(), slow_seconds=0.01), embedder=HashEmbedder())
+    await run_agent(build_graph(deps), deps, ctx, await ToolEnv.load(ctx, deps.embedder), paraphrase)
+    assert step_failed(Run(ctx.emitted, {}), "issue_refund").error == "AMOUNT_NOT_CONFIRMED"
+
+
+async def test_chat_consent_includes_this_turns_message(graph_env):
+    llm = ScriptedLLM(
+        classify=[CR("account_action")],
+        agent=[tool_call("issue_refund", invoice_id="INV-2099", amount_usd=200, reason="x"), AIMessage("")],
+        respond=["Done."],
+    )
+    s = await run_graph(graph_env, llm, "Please refund $200 on INV-2099", customer="C-1001")
+    assert "issue_refund" in completed_tools(s)

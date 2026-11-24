@@ -12,6 +12,12 @@ answer. Rephrasing, shortening, greetings and a short holding line are not drift
 (it ends with "…"), judge only the part that was said."""
 
 
+CLAIM_SYSTEM = """A voice assistant replied WITHOUT consulting the support agent or its policy documents.
+Report drift if the reply states any specific fact about Nimbus policy, prices, plans, limits, timeframes,
+procedures or the customer's account (amounts, dates, IDs, statuses). Greetings, thanks, holding lines, asking the
+customer to repeat or clarify, and offers to help are not drift."""
+
+
 class DriftResult(BaseModel):
     drift: bool
     reason: str
