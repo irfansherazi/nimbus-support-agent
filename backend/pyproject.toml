@@ -33,11 +33,12 @@ testpaths = ["tests"]
 markers = ["db: needs the test database"]
 
 [tool.ruff]
-line-length = 110
+line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = ["ASYNC240"]  # startup-time reads of small local files
 
 [tool.mypy]
 python_version = "3.12"
