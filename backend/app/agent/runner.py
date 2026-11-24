@@ -32,9 +32,9 @@ from app.events import (
 )
 from app.llm.errors import LLMError
 from app.models import Channel, Escalation
-from app.observability.trace import TraceRecorder
+from app.observability.trace import Latency, LLMUsage, Span, TraceRecorder
 from app.store.sessions import add_message
-from app.store.traces import save_trace
+from app.store.traces import get_trace, save_trace, session_cost_usd
 from app.tools.base import ToolEnv
 
 log = logging.getLogger(__name__)
@@ -96,7 +96,10 @@ class TurnRunner:
         *,
         turn_id: str | None = None,
         persist_user: bool = True,
+        persist_answer: bool = True,
     ) -> TurnResult:
+        """Voice passes persist_user=False and persist_answer=False: the bridge stores what was actually said and
+        heard (transcripts), not the agent's written answer."""
         turn_id = turn_id or self.new_turn_id()
 
         def emit(event: AgentEvent) -> None:
@@ -138,7 +141,7 @@ class TurnRunner:
                     await add_message(
                         conn, session_id=session_id, turn_id=turn_id, channel=channel, role="user", content=text
                     )
-                if answer:
+                if answer and persist_answer:
                     await add_message(
                         conn, session_id=session_id, turn_id=turn_id, channel=channel, role="assistant", content=answer
                     )
@@ -160,24 +163,29 @@ class TurnRunner:
                 status,
                 [s.model_dump() for s in trace.spans],
                 [u.model_dump() for u in trace.usage],
-                trace.latency.model_dump(),
+                trace.latency.model_dump(exclude_none=True),
             )
-            cur = await conn.execute(
-                """SELECT COALESCE(SUM((u ->> 'cost_usd')::float), 0) AS total
-                   FROM traces, jsonb_array_elements(usage) u WHERE session_id = %s""",
-                (ctx.session_id,),
-            )
-            row = await cur.fetchone()
-        session_cost = float(row["total"]) if row else 0.0
-        ctx.emit(TraceEvent(turn_id=ctx.turn_id, spans=trace.spans))
-        ctx.emit(
+        await self.publish_trace(ctx.session_id, ctx.turn_id)
+
+    async def publish_trace(self, session_id: UUID, turn_id: str) -> None:
+        """Publish the turn's stored (merged) trace and usage, so the drawer sees agent and voice parts together."""
+        async with self.pool.connection() as conn:
+            row = await get_trace(conn, turn_id)
+            session_cost = await session_cost_usd(conn, session_id)
+        if row is None:
+            return
+        spans = [Span(**s) for s in row["spans"]]
+        calls = [LLMUsage(**u) for u in row["usage"]]
+        self.bus.publish(session_id, TraceEvent(turn_id=turn_id, spans=spans))
+        self.bus.publish(
+            session_id,
             UsageEvent(
-                turn_id=ctx.turn_id,
-                calls=trace.usage,
-                turn_cost_usd=trace.total_cost_usd(),
+                turn_id=turn_id,
+                calls=calls,
+                turn_cost_usd=round(sum(c.cost_usd for c in calls), 6),
                 session_cost_usd=round(session_cost, 6),
-                latency=trace.latency,
-            )
+                latency=Latency(**row["latency"]),
+            ),
         )
 
     @staticmethod

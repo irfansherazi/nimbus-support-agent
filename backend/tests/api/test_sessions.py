@@ -129,3 +129,24 @@ async def test_session_view_reports_chaos_flags(api):
     assert (await client.get(f"/api/sessions/{sid}")).json()["chaos"]["tool_fail_next"] is None
     await client.put(f"/api/sessions/{sid}/chaos", json={"tool_fail_next": "issue_refund"})
     assert (await client.get(f"/api/sessions/{sid}")).json()["chaos"]["tool_fail_next"] == "issue_refund"
+
+
+async def test_voice_turn_persists_nothing_itself(pool):
+    from app.agent.graph import AgentDeps, build_graph
+    from app.agent.runner import TurnRunner
+    from app.bus import SessionBus
+    from app.rag.embedder import HashEmbedder
+    from app.store.sessions import create_session, recent_messages
+    from app.tools.registry import build_registry
+    from app.tools.runner import ToolRunner
+    from tests.fakes import fast_settings
+
+    llm = small_talk_llm(answer="Hello from voice")
+    deps = AgentDeps(llm=llm, runner=ToolRunner(build_registry()), embedder=HashEmbedder())
+    runner = TurnRunner(pool, SessionBus(), build_graph(deps), deps, fast_settings())
+    async with pool.connection() as c:
+        sid = (await create_session(c)).id
+    result = await runner.run_turn(sid, "hi", "voice", turn_id="v_x", persist_user=False, persist_answer=False)
+    assert result.answer == "Hello from voice" and result.status == "ok"
+    async with pool.connection() as c:
+        assert await recent_messages(c, sid, 10) == []

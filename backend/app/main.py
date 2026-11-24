@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import events_stream, schema, sessions
+from app.api import events_stream, schema, sessions, voice
 from app.api.deps import Services, build_production_services
 from app.config import Settings, get_settings
 
@@ -47,4 +47,5 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     app.include_router(sessions.router)
     app.include_router(events_stream.router)
     app.include_router(schema.router)
+    app.include_router(voice.router)
     return app

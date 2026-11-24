@@ -37,7 +37,7 @@ def build_services(settings: Settings, pool: Pool, deps: AgentDeps, owns_pool: b
     bus = SessionBus()
     budget = BudgetGuard(pool, settings)
     runner = TurnRunner(pool, bus, build_graph(deps), deps, settings, budget)
-    return Services(
+    services = Services(
         settings=settings,
         pool=pool,
         bus=bus,
@@ -50,6 +50,12 @@ def build_services(settings: Settings, pool: Pool, deps: AgentDeps, owns_pool: b
         voice_ip_limiter=SlidingWindowLimiter(settings.voice_calls_per_hour, 3600),
         owns_pool=owns_pool,
     )
+    from app.voice.registry import VoiceRegistry
+
+    services.extras["voice"] = VoiceRegistry(
+        pool=pool, bus=bus, runner=runner, llm=deps.llm, settings=settings, budget=budget
+    )
+    return services
 
 
 async def build_production_services(settings: Settings) -> Services:

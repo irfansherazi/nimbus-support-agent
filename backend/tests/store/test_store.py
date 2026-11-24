@@ -109,3 +109,26 @@ async def test_traces_and_spend(pool):
         assert (await list_traces(c, s.id))[0]["turn_id"] == "turn_1"
         assert await add_spend(c, 0.25) == 0.25 and await add_spend(c, 0.5) == 0.75
         assert await today_spend(c) == 0.75
+
+
+async def test_save_trace_twice_merges_spans_usage_and_latency(pool):
+    from app.store.traces import append_trace
+
+    async with pool.connection() as c:
+        s = await create_session(c)
+        await save_trace(c, "v_1", s.id, "voice", "ok", [{"span_id": "a"}], [{"cost_usd": 0.1}], {"total_ms": 5})
+        await save_trace(c, "v_1", s.id, "voice", "escalated", [{"span_id": "b"}], [{"cost_usd": 0.2}], {"ttft_ms": 3})
+        await append_trace(c, "v_1", s.id, "voice", spans=[{"span_id": "c"}], usage=[{"cost_usd": 0.3}])
+        [t] = await list_traces(c, s.id)
+    assert [x["span_id"] for x in t["spans"]] == ["a", "b", "c"]
+    assert len(t["usage"]) == 3 and t["latency"] == {"total_ms": 5, "ttft_ms": 3} and t["status"] == "escalated"
+
+
+async def test_merge_latency_creates_the_trace_row_if_missing(pool):
+    from app.store.traces import merge_latency
+
+    async with pool.connection() as c:
+        s = await create_session(c)
+        await merge_latency(c, "v_9", {"voice_e2e_ms": 640}, session_id=s.id, channel="voice")
+        [t] = await list_traces(c, s.id)
+    assert t["latency"] == {"voice_e2e_ms": 640} and t["channel"] == "voice"
