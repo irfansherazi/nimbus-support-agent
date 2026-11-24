@@ -1,4 +1,3 @@
-.env
 .venv/
 node_modules/
 .next/
@@ -8,3 +7,4 @@ spikes/**/fixtures/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+config.bat

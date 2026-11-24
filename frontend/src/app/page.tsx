@@ -83,8 +83,10 @@ export default function Home() {
               <VoicePanel
                 state={voice.state}
                 live={voice.live}
+                muted={voice.muted}
                 micBars={voice.micLevel}
                 agentBars={voice.agentLevel}
+                onToggleMute={voice.toggleMute}
                 onEnd={() => void voice.end()}
                 onDismiss={() => setVoiceNoticeHidden(true)}
               />

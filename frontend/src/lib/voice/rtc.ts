@@ -75,6 +75,13 @@ export async function connectVoice(
   return { pc, localStream, remoteStream, close };
 }
 
+/** Mute keeps the call open but sends silence, so the assistant neither hears nor gets interrupted. */
+export function setMicEnabled(stream: MediaStream, enabled: boolean): void {
+  stream.getAudioTracks().forEach((t) => {
+    t.enabled = enabled;
+  });
+}
+
 export async function hangUp(sessionId: string): Promise<void> {
   try {
     await fetch(`${API_URL}/api/voice/calls/${sessionId}`, { method: "DELETE" });

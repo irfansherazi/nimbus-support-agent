@@ -37,15 +37,19 @@ export function MicButton({ live, disabled, onStart }: { live: boolean; disabled
 export function VoicePanel({
   state,
   live,
+  muted,
   micBars,
   agentBars,
+  onToggleMute,
   onEnd,
   onDismiss,
 }: {
   state: VoiceState;
   live: boolean;
+  muted: boolean;
   micBars: () => number[];
   agentBars: () => number[];
+  onToggleMute: () => void;
   onEnd: () => void;
   onDismiss: () => void;
 }) {
@@ -70,8 +74,19 @@ export function VoicePanel({
           className={`h-2.5 w-2.5 shrink-0 rounded-full ${state.status === "connecting" ? "bg-amber" : "node-running bg-rain"}`}
         />
         <p className="flex-1 text-sm" aria-live="polite">
-          {STATUS[state.status]}
+          {muted ? "Muted. Nimbus can't hear you." : STATUS[state.status]}
         </p>
+        <button
+          type="button"
+          onClick={onToggleMute}
+          disabled={state.status === "connecting"}
+          aria-pressed={muted}
+          className={`rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-40 ${
+            muted ? "border-amber bg-amber/15 text-ink" : "border-line text-storm hover:border-storm/50"
+          }`}
+        >
+          {muted ? "Unmute" : "Mute"}
+        </button>
         <button type="button" onClick={onEnd} className="rounded-lg bg-ember px-3 py-1.5 text-sm font-medium text-white">
           End call
         </button>

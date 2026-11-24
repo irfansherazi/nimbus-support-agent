@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { createLevelMeter, type LevelMeter } from "@/lib/voice/analyser";
-import { connectVoice, hangUp, MicrophoneError, type VoiceConnection } from "@/lib/voice/rtc";
+import { connectVoice, hangUp, MicrophoneError, setMicEnabled, type VoiceConnection } from "@/lib/voice/rtc";
 import { initialVoice, isLive, voiceReducer } from "@/lib/voice/voice-state";
 
 /** Owns one voice call: mic, WebRTC, the remote <audio>, level meters and the UI state machine. */
@@ -13,8 +13,12 @@ export function useVoice(sessionId: string | null) {
   const ctx = useRef<AudioContext | null>(null);
   const mic = useRef<LevelMeter | null>(null);
   const agent = useRef<LevelMeter | null>(null);
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
 
   const teardown = useCallback(() => {
+    mutedRef.current = false;
+    setMuted(false);
     mic.current?.close();
     agent.current?.close();
     mic.current = agent.current = null;
@@ -69,8 +73,17 @@ export function useVoice(sessionId: string | null) {
   // Hang up on unmount (page close / navigation).
   useEffect(() => () => teardown(), [teardown]);
 
+  const toggleMute = useCallback(() => {
+    const c = conn.current;
+    if (!c) return;
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setMicEnabled(c.localStream, !next);
+    setMuted(next);
+  }, []);
+
   const micLevel = useCallback(() => mic.current?.bars(24) ?? [], []);
   const agentLevel = useCallback(() => agent.current?.bars(24) ?? [], []);
 
-  return { state, live: isLive(state.status), start, end, micLevel, agentLevel };
+  return { state, live: isLive(state.status), muted, toggleMute, start, end, micLevel, agentLevel };
 }
