@@ -29,14 +29,41 @@ async def _seed() -> None:
         await pool.close()
 
 
-COMMANDS = {"migrate": _migrate, "seed": _seed}
+async def _ingest(use_hash: bool = False) -> None:
+    from app.rag.embedder import Embedder, HashEmbedder, OpenAIEmbedder
+    from app.rag.ingest import ingest
+
+    settings = get_settings()
+    if not use_hash and not settings.openai_api_key:
+        raise SystemExit("ingest: OPENAI_API_KEY is not set (use --hash for an offline, test-quality index)")
+    embedder: Embedder = HashEmbedder() if use_hash else OpenAIEmbedder(settings)
+    pool = await create_pool(settings.database_url)
+    try:
+        report = await ingest(pool, embedder, REPO_DIR / "data" / "policies")
+        print(
+            f"ingest ({embedder.model_name}): inserted={report.inserted} "
+            f"skipped={report.skipped} deleted={report.deleted}"
+        )
+    finally:
+        await pool.close()
+
+
+async def _release() -> None:
+    """Deploy-time step: migrate, re-seed (refreshes relative dates), ingest any changed policy docs."""
+    await _migrate()
+    await _seed()
+    await _ingest()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
-    parser.add_argument("command", choices=sorted(COMMANDS))
+    parser.add_argument("command", choices=["migrate", "seed", "ingest", "release"])
+    parser.add_argument("--hash", action="store_true", help="ingest with the offline hashing embedder")
     args = parser.parse_args()
-    asyncio.run(COMMANDS[args.command]())
+    if args.command == "ingest":
+        asyncio.run(_ingest(use_hash=args.hash))
+    else:
+        asyncio.run({"migrate": _migrate, "seed": _seed, "release": _release}[args.command]())
 
 
 if __name__ == "__main__":
