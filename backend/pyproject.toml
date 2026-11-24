@@ -40,6 +40,9 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
 ignore = ["ASYNC240"]  # startup-time reads of small local files
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ASYNC109", "ASYNC110"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = false
