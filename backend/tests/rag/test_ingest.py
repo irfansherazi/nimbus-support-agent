@@ -51,3 +51,16 @@ def test_hash_embedder_is_deterministic_and_normalised():
     a = e.embed_sync(["refund window for pro"])[0]
     assert a == e.embed_sync(["refund window for pro"])[0]
     assert math.isclose(sum(x * x for x in a), 1.0, rel_tol=1e-6) and len(a) == 64
+
+
+async def test_switching_embedding_model_re_embeds_everything(empty_chunks, tmp_path):
+    class OtherEmbedder(HashEmbedder):
+        model_name = "other-embedder"
+
+    copy_corpus(tmp_path)
+    first = await ingest(empty_chunks, HashEmbedder(), tmp_path)
+    switched = await ingest(empty_chunks, OtherEmbedder(), tmp_path)
+    assert switched.inserted == first.inserted and switched.deleted == first.inserted
+    async with empty_chunks.connection() as c:
+        rows = await (await c.execute("SELECT DISTINCT embedding_model FROM policy_chunks")).fetchall()
+    assert [r["embedding_model"] for r in rows] == ["other-embedder"]

@@ -36,12 +36,14 @@ async def ingest(pool: Pool, embedder: Embedder, docs_dir: Path) -> IngestReport
         if stated != enforced:
             raise LimitsMismatchError(f"corpus states {stated}, policy_limits enforces {enforced}")
 
-        cur = await conn.execute("SELECT content_hash FROM policy_chunks")
-        existing = {r["content_hash"] for r in await cur.fetchall()}
+        cur = await conn.execute("SELECT content_hash, embedding_model FROM policy_chunks")
+        rows = await cur.fetchall()
 
     wanted = {c.content_hash: c for c in chunks}
-    new = [c for h, c in wanted.items() if h not in existing]
-    stale = [h for h in existing if h not in wanted]
+    # A chunk is current only if its text is unchanged AND it was embedded by this embedder's model.
+    current = {r["content_hash"] for r in rows if r["embedding_model"] == embedder.model_name}
+    new = [c for h, c in wanted.items() if h not in current]
+    stale = [r["content_hash"] for r in rows if r["content_hash"] not in current or r["content_hash"] not in wanted]
 
     vectors = await embedder.embed([c.embed_text for c in new]) if new else []
     async with pool.connection() as conn, conn.transaction():
@@ -49,9 +51,19 @@ async def ingest(pool: Pool, embedder: Embedder, docs_dir: Path) -> IngestReport
             await conn.execute("DELETE FROM policy_chunks WHERE content_hash = ANY(%s)", (stale,))
         for c, v in zip(new, vectors, strict=True):
             await conn.execute(
-                """INSERT INTO policy_chunks
-                   (doc_id, section_path, tier, doc_type, content, embed_text, content_hash, embedding)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                (c.doc_id, c.section_path, c.tier, c.doc_type, c.content, c.embed_text, c.content_hash, Vector(v)),
+                """INSERT INTO policy_chunks (doc_id, section_path, tier, doc_type, content, embed_text,
+                                              content_hash, embedding, embedding_model)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (
+                    c.doc_id,
+                    c.section_path,
+                    c.tier,
+                    c.doc_type,
+                    c.content,
+                    c.embed_text,
+                    c.content_hash,
+                    Vector(v),
+                    embedder.model_name,
+                ),
             )
     return IngestReport(inserted=len(new), skipped=len(wanted) - len(new), deleted=len(stale))

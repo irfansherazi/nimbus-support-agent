@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Models
     agent_model: str = "gpt-4.1-mini"
-    small_model: str = "gpt-4.1-nano"
+    small_model: str = "gpt-4.1-mini"
     fallback_model: str = "claude-haiku-5-5"
     realtime_model: str = "gpt-realtime"
     realtime_voice: str = "marin"
