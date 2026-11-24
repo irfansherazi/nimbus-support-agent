@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Realtime spike</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; max-width: 760px; margin: 32px auto; padding: 0 16px; color: #1a1f2e; background: #fff; }
+    button, select { font: inherit; padding: 6px 12px; margin-right: 6px; }
+    #log { white-space: pre-wrap; background: #f3f4f7; padding: 12px; height: 340px; overflow: auto; font-size: 12px; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <h1>Realtime voice spike</h1>
+  <p>Run each scenario once, wearing headphones is fine. Press <b>Start</b>, do what it says, then <b>Stop</b>.</p>
+  <ol>
+    <li><b>greeting</b>: say "Hi there, how are you?" and wait for the reply.</li>
+    <li><b>consult</b>: ask "What's the refund policy for the Pro plan?" and let it finish answering.</li>
+    <li><b>interrupt</b>: ask the same question, and while it is reading the answer, talk over it: "Actually, stop, what about annual plans?"</li>
+    <li><b>history</b>: ask "What's my name and account number?"</li>
+  </ol>
+  <p>
+    <select id="scenario">
+      <option>greeting</option><option>consult</option><option>interrupt</option><option>history</option>
+    </select>
+    <button id="start">Start</button><button id="stop" disabled>Stop</button>
+    <span id="status">idle</span>
+  </p>
+  <audio id="remote" autoplay></audio>
+  <div id="log"></div>
+<script>
+let pc, dc, stream;
+const $ = (id) => document.getElementById(id);
+const out = (line) => { $("log").textContent += line + "\n"; $("log").scrollTop = 1e9; };
+
+async function start() {
+  const scenario = $("scenario").value;
+  $("start").disabled = true; $("status").textContent = "connecting…";
+  stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  pc = new RTCPeerConnection();
+  pc.ontrack = (e) => { $("remote").srcObject = e.streams[0]; };
+  stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+  dc = pc.createDataChannel("oai-events");
+  dc.onmessage = (m) => {
+    const ev = JSON.parse(m.data);
+    out(ev.type + (ev.transcript ? `: ${ev.transcript}` : "") + (ev.delta && typeof ev.delta === "string" && ev.type.includes("transcript") ? "" : ""));
+    fetch(`/client-log?scenario=${scenario}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ev) });
+  };
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  const r = await fetch(`/offer?scenario=${scenario}`, { method: "POST", body: offer.sdp, headers: { "Content-Type": "application/sdp" } });
+  if (!r.ok) { out("OFFER FAILED: " + (await r.text())); $("status").textContent = "failed"; $("start").disabled = false; return; }
+  await pc.setRemoteDescription({ type: "answer", sdp: await r.text() });
+  $("status").textContent = `live (${scenario}) — talk now`; $("stop").disabled = false;
+}
+
+function stop() {
+  dc?.close(); pc?.close(); stream?.getTracks().forEach((t) => t.stop());
+  $("start").disabled = false; $("stop").disabled = true; $("status").textContent = "stopped";
+  out("---- stopped ----");
+}
+$("start").onclick = () => start().catch((e) => { out("ERROR " + e); $("start").disabled = false; });
+$("stop").onclick = stop;
+</script>
+</body>
+</html>
