@@ -26,6 +26,9 @@ async def one(cur: AsyncCursor[DictRow]) -> DictRow:
 
 
 async def _configure(conn: Conn) -> None:
+    # A brand-new database (CI, a fresh Railway Postgres) has no vector type until the extension exists, and the
+    # migration that creates it needs a connection first, so each connection makes sure it exists. Idempotent.
+    await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
     await register_vector_async(conn)
 
 
