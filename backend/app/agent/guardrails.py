@@ -45,4 +45,6 @@ def needs_verification(intent: Intent, band: Band) -> bool:
 
 
 def route_after_guardrail(band: Band, intent: Intent) -> Literal["respond", "escalate"]:
-    return "escalate" if band == "low" else "respond"
+    """Low confidence escalates, except on a pure account action: the action already ran, so the reply reports
+    the tool results and simply does not cite the weak policy match."""
+    return "escalate" if band == "low" and intent != "account_action" else "respond"

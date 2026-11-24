@@ -42,3 +42,8 @@ def test_verification_rules():
     assert needs_verification("small_talk", "skipped") and needs_verification("policy", "grey")
     assert not needs_verification("policy", "high") and not needs_verification("account_action", "skipped")
     assert needs_verification("account_action", "grey")  # an account answer that also cites grey-band policy
+
+
+def test_low_band_on_account_action_still_responds():
+    # The action already happened; the reply just must not lean on the weak policy match.
+    assert route_after_guardrail("low", "account_action") == "respond"
