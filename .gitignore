@@ -1,0 +1,10 @@
+.env
+.venv/
+node_modules/
+.next/
+__pycache__/
+*.pyc
+spikes/**/fixtures/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
