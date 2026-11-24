@@ -27,6 +27,9 @@ Use one of these demo accounts (account ID + PIN). The PINs are fake and exist o
 Out-of-scope questions ("Do you sell Wi-Fi routers?") escalate to a ticket. The drawer's **Simulate failures** menu
 injects a model timeout, a 429, a full outage, or a failing or slow tool into your own session only.
 
+The demo CRM is shared by every visitor, so it **resets every hour** (and on every deploy): refunds are cleared and the
+accounts are restored. If an invoice says it's already refunded, someone got there first; try another account.
+
 ## Architecture
 
 ```mermaid
@@ -100,14 +103,15 @@ flowchart LR
   | Initial guess | 0.30 / 0.45 | 54% | 1 | 18% |
   | **Tuned** | **0.44 / 0.52** | **92%** | **0** | 9% |
 
-  The full table is in [`evals/results/threshold_sweep.md`](evals/results/threshold_sweep.md).
+  The full table is in [`evals/results/threshold_sweep.md`](evals/results/threshold_sweep.md). These figures are measured on the same 34 queries used to choose the thresholds, and the margins are thin (one out-of-scope query scores 0.516). The source check is the backstop for that band.
 - **Streaming vs. checking.** Chat streams the answer, so a failed check **retracts** it in the UI and escalates. Voice speaks only after the check, so a failed check **blocks** it instead.
 - **Code-enforced action rules** (tested in `backend/tests/tools/`):
-  - identity before account actions, and verification locks after 3 failed attempts;
-  - refunds must be under the plan limit and inside its window, need an active contract, and can't exceed what was paid, even when two refunds run at once (row lock);
+  - identity before account actions; verification locks after 3 failed attempts in a conversation and after 10 per account per hour;
+  - refunds must be inside the plan's window and need an active contract;
+  - the plan limit is **per invoice, across all conversations**, and a refund can't exceed what was paid, even when two refunds run at once (row lock);
   - retries are idempotent;
-  - **the refund amount must be the full invoice or an amount the customer actually stated**. The evals caught the agent "helpfully" refunding $200 when $490 was asked for.
-- **Voice drift check:** after each spoken answer, a small model compares what was said with the agent's answer. Any difference shows as a red `voice_drift` span in the trace.
+  - **the refund amount must be the full invoice or an amount the customer actually stated**. The evals caught the agent "helpfully" refunding $200 when $490 was asked for. In voice, only the customer's transcribed words count, never the voice model's paraphrase.
+- **Voice drift check:** after each spoken reply, a small model compares what was said with the agent's answer. Replies the voice gave without consulting the agent are checked for unsourced policy or account claims. Either kind of problem shows as a red `voice_drift` span in the trace.
 
 ## Evals
 
@@ -120,7 +124,9 @@ flowchart LR
 - a failing invoice system;
 - verify-then-act across turns, and accepting the allowed amount.
 
-Unit and integration tests: `backend/` 183 (pytest; real Postgres, scripted LLM, recorded Realtime events) and `frontend/` 33 (vitest).
+Unit and integration tests: `backend/` 193 (pytest; real Postgres, scripted LLM, recorded Realtime events) and `frontend/` 39 (vitest).
+
+An independent whole-branch review before deployment found a per-invoice refund-cap bypass across conversations, voice consent taken from the model's paraphrase, and spoofable client IPs, among others. All were fixed with regression tests. Smaller open items are listed under known limitations.
 
 ## Voice details
 
@@ -140,6 +146,14 @@ Unit and integration tests: `backend/` 183 (pytest; real Postgres, scripted LLM,
 - **Interruption truncation is estimated** from a ~15 characters/second speaking rate, because the API reports how much audio played but not which words.
 - **Sessions are anonymous** (an ID in localStorage). Identity comes from the demo account and PIN, not a login.
 - **Small eval set** (34 queries, 11 scenarios). It's enough to tune and catch regressions; a production system would grow it from real traffic.
+
+### Known limitations
+
+- A second partial refund of the same invoice in the same conversation returns the first one (the idempotency key is per conversation and invoice).
+- The "stated amount" check is a heuristic: numbers like a PIN or a date count as stated amounts. The plan limit and the invoice total still bound any refund.
+- If the caller speaks again while a lookup is running, the spoken answer can be filed under the newer turn.
+- The in-memory event buffers and locks are never evicted, which is fine for a demo but not for long-running production use.
+- PINs appear in trace spans in the drawer. The demo PINs are fake.
 
 ## Run locally
 
