@@ -1,6 +1,6 @@
 """One live voice call: Realtime events in, the shared agent and the session store on the other side.
 
-The Realtime model is only the voice ("one brain", spec §4.3): anything substantive arrives as a consult_agent call,
+The Realtime model is only the voice ("one brain"): anything substantive arrives as a consult_agent call,
 which runs the SAME LangGraph turn as chat, so tools, guardrails, step events and traces are identical in both modes.
 """
 
@@ -223,7 +223,7 @@ class VoiceBridge:
         elif isinstance(effect, StoreAssistantTranscript):
             await self._store(effect.turn_id, "assistant", effect.text, interrupted=effect.interrupted)
             # Consulted answers are compared with the agent's; replies the voice gave on its own are checked for
-            # unsourced policy or account claims (spec §8.2a).
+            # unsourced policy or account claims.
             self._spawn(self._check_drift(effect.turn_id, effect.text))
         elif isinstance(effect, SpeakHoldingLine):
             await self._request_response(HOLDING_LINE_REQUEST)

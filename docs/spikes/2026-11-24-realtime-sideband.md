@@ -4,7 +4,7 @@ Date: 2026-11-24 · Model: `gpt-realtime` · Code: `spikes/realtime/` (throwaway
 
 ## Decision
 
-**The sideband flow works as designed (spec §8.1). No fallback is needed.** The browser never sees an API key, and every tool call is handled on our server.
+**The sideband flow works as designed. No fallback is needed.** The browser never sees an API key, and every tool call is handled on our server.
 
 ## What was confirmed
 

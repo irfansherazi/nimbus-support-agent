@@ -202,5 +202,5 @@ backend/app/api        REST, SSE and voice routes
 frontend/src           Next.js app: chat, voice, trace drawer, typed event reducer
 data/policies          the knowledge base
 evals                  labelled queries, threshold sweep, agent scenarios, results
-docs                   design spec, implementation plan, voice spike
+docs                   voice spike notes
 ```

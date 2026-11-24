@@ -1,4 +1,4 @@
-"""The agent graph (spec §6.2):
+"""The agent graph:
 
 load_context -> classify -> agent <-> tools -> guardrail -> respond -> verify_answer -> END
                    |          |  \\-> force_retrieval -/        \\-> escalate      \\-> escalate

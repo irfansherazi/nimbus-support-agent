@@ -1,4 +1,4 @@
-"""Spoken-output check (spec §8.2a): did the voice say what the agent answered, and nothing more?
+"""Spoken-output check: did the voice say what the agent answered, and nothing more?
 
 It can't un-say audio that already played, so it doesn't block anything. It makes drift visible: a red
 `voice_drift` span in the drawer, and a measurable rate in the evals.
