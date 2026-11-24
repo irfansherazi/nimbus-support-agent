@@ -87,6 +87,7 @@ flowchart LR
   - Plan descriptions are public, because anyone may ask what Enterprise includes. Entitlement policies (refunds, SLA, cancellation) are tier-tagged.
 - **Ingest is idempotent.** It's keyed on a hash of tier, type and text, re-embeds when the embedding model changes, and refuses to run if the refund limits stated in the documents disagree with the `policy_limits` table the code enforces.
 - Embeddings: `text-embedding-3-small`, cosine similarity with an HNSW index, top-5.
+- Each search runs twice: once with the model's query and once with the customer's own last message, keeping each chunk's best score. The model tends to shorten questions ("plans offered"), and the short form scores lower than the customer's wording, which the thresholds below were tuned on.
 
 ## Guardrails
 

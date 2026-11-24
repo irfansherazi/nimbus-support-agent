@@ -98,6 +98,18 @@ async def test_unverified_search_sees_only_public_docs(ingested):
     assert all(c["tier"] == "all" for c in out.data["chunks"]) and out.data["top_score"] is not None
 
 
+async def test_search_also_scores_the_customers_own_words(ingested):
+    """A terse query written by the model must not sink confidence when the customer's own question matches better
+    (the confidence thresholds were tuned on customer questions)."""
+    question = "What is the refund window for the Pro plan?"
+    terse = await run(ingested, None, "search_policies", {"query": "xq zv"})
+    own = await run(ingested, None, "search_policies", {"query": question})
+    both = await run(ingested, None, "search_policies", {"query": "xq zv"}, said=["hi", question])
+    assert both.data["top_score"] == own.data["top_score"] > terse.data["top_score"]
+    assert both.data["query"] == "xq zv" and both.data["customer_query"] == question
+    assert len(both.data["chunks"]) == len(own.data["chunks"])
+
+
 # ------------------------------------------------------------------ billing
 
 
