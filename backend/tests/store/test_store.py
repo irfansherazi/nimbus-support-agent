@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.models import Escalation, PolicyLimit
 from app.store.customers import (
@@ -38,7 +38,7 @@ async def test_seed_loaded(pool):
 async def test_invoice_dates_are_relative_to_today(pool):
     async with pool.connection() as c:
         inv = await get_invoice(c, "INV-2150")
-        assert inv.issued_at == date.today() - timedelta(days=40)
+        assert inv.issued_at == datetime.now(UTC).date() - timedelta(days=40)  # the DB clock is UTC
         assert {i.id for i in await list_invoices(c, "C-1001")} == {"INV-2207", "INV-2150", "INV-2099"}
 
 
