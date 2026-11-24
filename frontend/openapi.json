@@ -1053,6 +1053,9 @@
           "last_event_seq": {
             "type": "integer",
             "title": "Last Event Seq"
+          },
+          "chaos": {
+            "$ref": "#/components/schemas/ChaosState"
           }
         },
         "type": "object",
@@ -1061,7 +1064,8 @@
           "customer",
           "escalation",
           "messages",
-          "last_event_seq"
+          "last_event_seq",
+          "chaos"
         ],
         "title": "SessionView"
       },

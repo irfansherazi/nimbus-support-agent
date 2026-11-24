@@ -121,3 +121,11 @@ async def test_openapi_exposes_event_union(api):
     client = await api(small_talk_llm())
     schema = (await client.get("/openapi.json")).json()
     assert {"TokenEvent", "StepEvent", "ErrorEvent", "TurnCompletedEvent"} <= set(schema["components"]["schemas"])
+
+
+async def test_session_view_reports_chaos_flags(api):
+    client = await api(small_talk_llm())
+    sid = await new_session(client)
+    assert (await client.get(f"/api/sessions/{sid}")).json()["chaos"]["tool_fail_next"] is None
+    await client.put(f"/api/sessions/{sid}/chaos", json={"tool_fail_next": "issue_refund"})
+    assert (await client.get(f"/api/sessions/{sid}")).json()["chaos"]["tool_fail_next"] == "issue_refund"

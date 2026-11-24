@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Composer } from "@/components/chat/Composer";
 import { ErrorBanner } from "@/components/chat/ErrorBanner";
 import { MessageList } from "@/components/chat/MessageList";
+import { ObservabilityDrawer } from "@/components/drawer/ObservabilityDrawer";
 import { StatusBar } from "@/components/header/StatusBar";
 import { useSession } from "@/hooks/useSession";
 
@@ -65,10 +66,14 @@ export default function Home() {
         {drawerOpen && (
           <aside
             id="observability"
-            className="hidden w-[380px] shrink-0 border-l border-line bg-surface lg:block"
             aria-label="Agent trace"
+            className={
+              // Side panel on wide screens; a bottom sheet over the chat on small ones.
+              "fixed inset-x-0 bottom-0 z-20 h-[72dvh] rounded-t-2xl border-t border-line bg-surface shadow-[0_-8px_24px_rgb(26_31_46/0.12)] " +
+              "lg:static lg:z-auto lg:h-auto lg:w-[380px] lg:shrink-0 lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none"
+            }
           >
-            <p className="p-4 text-sm text-ink-soft">The trace panel arrives in the next step.</p>
+            <ObservabilityDrawer state={state} onClose={toggleDrawer} />
           </aside>
         )}
       </div>

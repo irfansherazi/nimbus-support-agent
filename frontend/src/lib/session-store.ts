@@ -1,6 +1,7 @@
 // Pure reducer from server events (and a few local actions) to what the chat, voice and drawer UIs render.
 import type {
   AgentEvent,
+  ChaosState,
   CustomerView,
   Escalation,
   Message,
@@ -62,13 +63,23 @@ export interface SessionState {
   usageTotal: number;
   needsRefresh: boolean;
   pendingVoiceUser: string | null;
+  chaos: ChaosState;
 }
+
+export const NO_CHAOS: ChaosState = {
+  llm_timeout_next: false,
+  llm_429_next: false,
+  llm_outage_next: false,
+  tool_fail_next: null,
+  tool_slow: null,
+};
 
 export type SessionAction =
   | { kind: "event"; event: AgentEvent }
   | { kind: "local_send"; turnId: string; text: string; retryOf?: string }
   | { kind: "hydrate"; session: SessionView; traces?: TraceView[] }
   | { kind: "local_error"; error: ErrorView }
+  | { kind: "clear_error" }
   | { kind: "reset"; sessionId: string | null };
 
 export function initialState(sessionId: string | null): SessionState {
@@ -83,6 +94,7 @@ export function initialState(sessionId: string | null): SessionState {
     usageTotal: 0,
     needsRefresh: false,
     pendingVoiceUser: null,
+    chaos: NO_CHAOS,
   };
 }
 
@@ -280,12 +292,15 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         escalation: action.session.escalation ?? null,
         turns: [...persisted, ...running],
         lastSeq: action.session.last_event_seq,
+        chaos: action.session.chaos ?? NO_CHAOS,
         needsRefresh: false,
         usageTotal: Math.max(state.usageTotal, persisted.reduce((s, t) => s + (t.usage?.turn_cost_usd ?? 0), 0)),
       };
     }
     case "local_error":
       return { ...state, error: action.error };
+    case "clear_error":
+      return { ...state, error: null };
     case "reset":
       return initialState(action.sessionId);
   }

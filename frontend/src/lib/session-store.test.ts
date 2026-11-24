@@ -171,10 +171,23 @@ describe("sessionReducer", () => {
     s = sessionReducer(s, { kind: "hydrate", session: view() });
     expect(s.turns.map((t) => [t.turnId, t.userText, t.status])).toEqual([["t1", "hi", "failed"]]);
   });
+
+  it("hydrate exposes the pending failure-simulation flags", () => {
+    const s = sessionReducer(init(), { kind: "hydrate", session: view({ chaos: { ...NO_CHAOS, llm_outage_next: true } }) });
+    expect(s.chaos.llm_outage_next).toBe(true);
+  });
+
+  it("clear_error removes the banner once the service is reachable again", () => {
+    let s = sessionReducer(init(), { kind: "local_error", error: { code: "NETWORK", message: "x", retryable: false } });
+    s = sessionReducer(s, { kind: "clear_error" });
+    expect(s.error).toBeNull();
+  });
 });
 
+const NO_CHAOS = { llm_timeout_next: false, llm_429_next: false, llm_outage_next: false, tool_fail_next: null, tool_slow: null };
+
 function view(over: Partial<SessionView> = {}): SessionView {
-  return { session_id: "s1", customer: null, escalation: null, messages: [], last_event_seq: 0, ...over };
+  return { session_id: "s1", customer: null, escalation: null, messages: [], last_event_seq: 0, chaos: NO_CHAOS, ...over };
 }
 
 function msg(id: number, turn: string, channel: "chat" | "voice", role: "user" | "assistant", content: string, interrupted = false) {

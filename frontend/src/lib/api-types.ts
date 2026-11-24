@@ -446,6 +446,7 @@ export interface components {
             messages: components["schemas"]["Message"][];
             /** Last Event Seq */
             last_event_seq: number;
+            chaos: components["schemas"]["ChaosState"];
         };
         /** Span */
         Span: {

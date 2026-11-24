@@ -73,18 +73,24 @@ export function useSession() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const boot = async (attempt: number) => {
+      if (cancelled) return;
       try {
         const stored = readStoredId();
-        if (stored && (await connect(stored))) return;
-        if (!cancelled) await startNew(); // no session yet, or the stored one is gone (DB reset)
+        if (!(stored && (await connect(stored))) && !cancelled) await startNew(); // none yet, or gone (DB reset)
+        if (attempt > 0) dispatch({ kind: "clear_error" });
       } catch (e) {
+        // The service may be starting up or briefly unreachable: keep trying instead of giving up.
         const message = e instanceof ApiError ? e.message : "Can't reach the support service.";
         dispatch({ kind: "local_error", error: { code: "NETWORK", message, retryable: false } });
+        timer = setTimeout(() => void boot(attempt + 1), Math.min(2000 * (attempt + 1), 10000));
       }
-    })();
+    };
+    void boot(0);
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
       unsubscribe.current?.();
     };
   }, [connect, startNew]);

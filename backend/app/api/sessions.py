@@ -13,7 +13,7 @@ from app.models import ContractStatus, Escalation, Message, Ticket, Tier
 from app.observability.trace import Latency, LLMUsage, Span
 from app.ratelimit import client_ip
 from app.store.customers import get_customer
-from app.store.sessions import create_session, get_session, recent_messages
+from app.store.sessions import create_session, get_chaos, get_session, recent_messages
 from app.store.tickets import list_tickets
 from app.store.traces import latest_trace_turn, list_traces, merge_latency
 
@@ -39,6 +39,7 @@ class SessionView(BaseModel):
     escalation: Escalation | None
     messages: list[Message]
     last_event_seq: int  # pass as ?last_event_id= when opening the event stream, so nothing is missed
+    chaos: ChaosState  # fault-injection flags still pending (one-shot flags clear once used)
 
 
 class SendMessage(BaseModel):
@@ -95,12 +96,14 @@ async def read(session_id: UUID, services: ServicesDep) -> SessionView:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "SESSION_NOT_FOUND"})
         customer = await get_customer(conn, session.customer_id) if session.customer_id else None
         messages = await recent_messages(conn, session_id, 200)
+        chaos = await get_chaos(conn, session_id)
     return SessionView(
         session_id=session_id,
         customer=CustomerView(**customer.model_dump()) if customer else None,
         escalation=session.escalation,
         messages=messages,
         last_event_seq=services.bus.last_seq(session_id),
+        chaos=ChaosState(**chaos),
     )
 
 
