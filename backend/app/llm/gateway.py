@@ -177,11 +177,12 @@ class LLMGateway:
                 last = code or "LLM_UNAVAILABLE"
                 if code is None or attempt == retries:
                     break
+                retry_step = f"sys-{uuid.uuid4().hex[:8]}"
                 if code == "RATE_LIMITED":
-                    _system_step(ctx, "Rate limited — retrying…", "step_started")
+                    _system_step(ctx, "Rate limited — retrying…", "step_started", retry_step)
                 await asyncio.sleep(self._settings.llm_backoff_base_s * (2**attempt) * (0.5 + random.random()))
                 if code == "RATE_LIMITED":
-                    _system_step(ctx, "Rate limited — retrying…", "step_completed")
+                    _system_step(ctx, "Rate limited — retrying…", "step_completed", retry_step)
 
         if self._fallback is None:
             raise LLMUnavailable(last)

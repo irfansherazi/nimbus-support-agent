@@ -114,3 +114,12 @@ async def test_stream_falls_back_before_first_token():
     gw = LLMGateway({"respond": FakeModel(["primary"])}, FakeModel(["backup answer"]), fast_settings())
     out = [t async for t in gw.stream(ctx, "respond", [HumanMessage("hi")])]
     assert "".join(out) == "backup answer"
+
+
+async def test_retry_notice_is_one_step_that_completes():
+    ctx = make_ctx()
+    gw = LLMGateway({"agent": FakeModel([LLMRateLimited(), "ok"])}, fallback=None, settings=fast_settings())
+    await gw.complete(ctx, "agent", [HumanMessage("hi")])
+    steps = [e for e in ctx.emitted if e.type.startswith("step_")]
+    assert [e.type for e in steps] == ["step_started", "step_completed"]
+    assert steps[0].step_id == steps[1].step_id
