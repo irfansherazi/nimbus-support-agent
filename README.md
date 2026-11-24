@@ -3,7 +3,7 @@
 A customer support agent for a fictional SaaS company, **Nimbus**. You can type to it or talk to it. Both run the
 **same** LangGraph agent, so they share the tools, guardrails, live step indicators, trace and memory.
 
-**Live demo:** _added on deploy_ · **Walkthrough:** _Loom link_
+**Live demo:** https://nimbus-support-agent-production.up.railway.app · **Walkthrough:** _Loom link_
 
 - **Streaming chat:** SSE with live step indicators ("Verifying account & tier…", "Searching knowledge base…").
 - **Live voice:** OpenAI Realtime over WebRTC, with waveforms, live transcripts and barge-in. The API key stays on the server.
