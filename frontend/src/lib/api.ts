@@ -1,7 +1,8 @@
 // Thin typed client for the backend REST API.
 import type { ChaosState, SessionView, Ticket, TraceView } from "./events";
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+// Same origin in production (the backend serves this app); .env.development points local dev at :8000.
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
 export class ApiError extends Error {
   constructor(

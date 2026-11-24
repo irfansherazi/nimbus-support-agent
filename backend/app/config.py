@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://nimbus:nimbus@localhost:5433/nimbus"
     test_database_url: str = "postgresql://nimbus:nimbus@localhost:5433/nimbus_test"
     frontend_origin: str = "http://localhost:3000"
+    static_dir: str | None = None  # the built frontend; when set, served from "/" (one-service deploy)
 
     # Providers
     openai_api_key: str = ""

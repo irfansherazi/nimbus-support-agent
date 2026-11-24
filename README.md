@@ -34,12 +34,12 @@ accounts are restored. If an invoice says it's already refunded, someone got the
 
 ```mermaid
 flowchart LR
-  subgraph Browser["Next.js (Vercel)"]
+  subgraph Browser["Next.js static site (served by the API)"]
     Chat[Chat + step rail]
     Voice[Voice panel<br/>WebRTC + waveforms]
     Drawer[Trace drawer]
   end
-  subgraph API["FastAPI (Railway)"]
+  subgraph API["FastAPI (one Railway service)"]
     Sessions[REST + SSE<br/>per-session event bus]
     Bridge[Voice bridge<br/>Realtime sideband]
     Runner[Turn runner<br/>one turn at a time per session]
@@ -47,7 +47,7 @@ flowchart LR
     Tools[Tools<br/>preconditions in code]
     GW[LLM gateway<br/>timeouts · retries · fallback · cost]
   end
-  DB[(Postgres + pgvector<br/>Neon)]
+  DB[(Postgres + pgvector<br/>Railway)]
   OAI[OpenAI<br/>chat · embeddings · Realtime]
 
   Chat -- POST message --> Sessions
@@ -176,6 +176,18 @@ cd backend && uv run pytest -q && uv run ruff check . && uv run mypy app
 cd frontend && npm test && npm run lint && npm run typecheck
 cd backend && uv run python ../evals/threshold_sweep.py && uv run python ../evals/run_scenarios.py
 ```
+
+## Deploy (one Railway project)
+
+One image serves both the API and the website: the Dockerfile builds the Next.js static export and the FastAPI app
+serves it from `/`, so the browser talks to one origin with no CORS. The project has two services:
+
+1. **Postgres with pgvector:** Railway's pgvector template, or the `pgvector/pgvector:pg16` image with a volume.
+2. **The app**, deployed from this repo. `railway.json` builds `backend/Dockerfile` and health-checks `/healthz`.
+   Set the variables `DATABASE_URL` (a reference to the Postgres service), `OPENAI_API_KEY`, `DAILY_BUDGET_USD`, and
+   optionally `ANTHROPIC_API_KEY`. Then generate a public domain.
+
+On boot the app migrates, resets the demo data and ingests the policies. To tear it down, delete the Railway project.
 
 ## Repository map
 

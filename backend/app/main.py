@@ -2,9 +2,11 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api import events_stream, schema, sessions, voice
 from app.api.deps import Services, build_production_services
@@ -57,4 +59,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     app.include_router(events_stream.router)
     app.include_router(schema.router)
     app.include_router(voice.router)
+    # Mounted last, so every API route above takes precedence over the static site.
+    if settings.static_dir and Path(settings.static_dir).is_dir():
+        app.mount("/", StaticFiles(directory=settings.static_dir, html=True), name="frontend")
     return app
