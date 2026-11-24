@@ -1,0 +1,1677 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Nimbus Support Agent",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Healthz",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Healthz Healthz Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_sessions_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedSession"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Read",
+        "operationId": "read_api_sessions__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/messages": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Send",
+        "operationId": "send_api_sessions__session_id__messages_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnAccepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/traces": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Traces",
+        "operationId": "traces_api_sessions__session_id__traces_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TraceView"
+                  },
+                  "title": "Response Traces Api Sessions  Session Id  Traces Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/tickets": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Tickets",
+        "operationId": "tickets_api_sessions__session_id__tickets_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Ticket"
+                  },
+                  "title": "Response Tickets Api Sessions  Session Id  Tickets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/chaos": {
+      "put": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Set Chaos",
+        "operationId": "set_chaos_api_sessions__session_id__chaos_put",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChaosState"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChaosState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/metrics": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Metric",
+        "operationId": "metric_api_sessions__session_id__metrics_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Metric"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/events": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Events",
+        "description": "Header wins (browser reconnects send it); the query param covers the first connect after hydration.",
+        "operationId": "events_api_sessions__session_id__events_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "last_event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Event Id"
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/schema/events": {
+      "get": {
+        "tags": [
+          "schema"
+        ],
+        "summary": "Event Schema",
+        "operationId": "event_schema_api_schema_events_get",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "200": {
+            "description": "Event union",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TurnStartedEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StepEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GuardrailEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EscalationEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AnswerRetractedEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TranscriptEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TraceEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UsageEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorEvent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TurnCompletedEvent"
+                    }
+                  ],
+                  "title": "Response 200 Event Schema Api Schema Events Get",
+                  "discriminator": {
+                    "propertyName": "type",
+                    "mapping": {
+                      "turn_started": "#/components/schemas/TurnStartedEvent",
+                      "token": "#/components/schemas/TokenEvent",
+                      "step_started": "#/components/schemas/StepEvent",
+                      "step_completed": "#/components/schemas/StepEvent",
+                      "step_failed": "#/components/schemas/StepEvent",
+                      "guardrail": "#/components/schemas/GuardrailEvent",
+                      "escalation": "#/components/schemas/EscalationEvent",
+                      "answer_retracted": "#/components/schemas/AnswerRetractedEvent",
+                      "transcript": "#/components/schemas/TranscriptEvent",
+                      "trace": "#/components/schemas/TraceEvent",
+                      "usage": "#/components/schemas/UsageEvent",
+                      "error": "#/components/schemas/ErrorEvent",
+                      "turn_completed": "#/components/schemas/TurnCompletedEvent"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnswerRetractedEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "answer_retracted",
+            "title": "Type",
+            "default": "answer_retracted"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "AnswerRetractedEvent"
+      },
+      "ChaosState": {
+        "properties": {
+          "llm_timeout_next": {
+            "type": "boolean",
+            "title": "Llm Timeout Next",
+            "default": false
+          },
+          "llm_429_next": {
+            "type": "boolean",
+            "title": "Llm 429 Next",
+            "default": false
+          },
+          "llm_outage_next": {
+            "type": "boolean",
+            "title": "Llm Outage Next",
+            "default": false
+          },
+          "tool_fail_next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Fail Next"
+          },
+          "tool_slow": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Slow"
+          }
+        },
+        "type": "object",
+        "title": "ChaosState"
+      },
+      "CreatedSession": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id"
+        ],
+        "title": "CreatedSession"
+      },
+      "CustomerView": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "free",
+              "pro",
+              "enterprise"
+            ],
+            "title": "Tier"
+          },
+          "contract_status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "expired",
+              "past_due"
+            ],
+            "title": "Contract Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "tier",
+          "contract_status"
+        ],
+        "title": "CustomerView"
+      },
+      "ErrorEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "error",
+            "title": "Type",
+            "default": "error"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "LLM_TIMEOUT",
+              "RATE_LIMITED",
+              "LLM_UNAVAILABLE",
+              "TOOL_FAILED",
+              "BUDGET_EXCEEDED",
+              "VOICE_LIMIT",
+              "VOICE_DROPPED",
+              "INTERNAL"
+            ],
+            "title": "Code"
+          },
+          "retryable": {
+            "type": "boolean",
+            "title": "Retryable"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "retryable",
+          "message"
+        ],
+        "title": "ErrorEvent"
+      },
+      "Escalation": {
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "title": "Ticket Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket_id",
+          "reason"
+        ],
+        "title": "Escalation"
+      },
+      "EscalationEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "escalation",
+            "title": "Type",
+            "default": "escalation"
+          },
+          "ticket_id": {
+            "type": "string",
+            "title": "Ticket Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket_id",
+          "reason"
+        ],
+        "title": "EscalationEvent"
+      },
+      "GuardrailEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "guardrail",
+            "title": "Type",
+            "default": "guardrail"
+          },
+          "band": {
+            "type": "string",
+            "enum": [
+              "high",
+              "grey",
+              "low",
+              "skipped"
+            ],
+            "title": "Band"
+          },
+          "top_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Score"
+          },
+          "verify": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "unsupported",
+              "not_run"
+            ],
+            "title": "Verify",
+            "default": "not_run"
+          }
+        },
+        "type": "object",
+        "required": [
+          "band",
+          "top_score"
+        ],
+        "title": "GuardrailEvent"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LLMUsage": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens",
+            "default": 0
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens",
+            "default": 0
+          },
+          "cached_input_tokens": {
+            "type": "integer",
+            "title": "Cached Input Tokens",
+            "default": 0
+          },
+          "audio_input_tokens": {
+            "type": "integer",
+            "title": "Audio Input Tokens",
+            "default": 0
+          },
+          "audio_output_tokens": {
+            "type": "integer",
+            "title": "Audio Output Tokens",
+            "default": 0
+          },
+          "cost_usd": {
+            "type": "number",
+            "title": "Cost Usd",
+            "default": 0.0
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "purpose"
+        ],
+        "title": "LLMUsage"
+      },
+      "Latency": {
+        "properties": {
+          "ttft_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttft Ms"
+          },
+          "total_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Ms"
+          },
+          "voice_e2e_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice E2E Ms"
+          }
+        },
+        "type": "object",
+        "title": "Latency"
+      },
+      "Message": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id"
+          },
+          "turn_id": {
+            "type": "string",
+            "title": "Turn Id"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "voice"
+            ],
+            "title": "Channel"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "interrupted": {
+            "type": "boolean",
+            "title": "Interrupted"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "turn_id",
+          "channel",
+          "role",
+          "content",
+          "interrupted",
+          "created_at"
+        ],
+        "title": "Message"
+      },
+      "Metric": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "voice_e2e_ms",
+            "title": "Kind"
+          },
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "Metric"
+      },
+      "SendMessage": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "SendMessage"
+      },
+      "SessionView": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id"
+          },
+          "customer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomerView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "escalation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Escalation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "last_event_seq": {
+            "type": "integer",
+            "title": "Last Event Seq"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "customer",
+          "escalation",
+          "messages",
+          "last_event_seq"
+        ],
+        "title": "SessionView"
+      },
+      "Span": {
+        "properties": {
+          "span_id": {
+            "type": "string",
+            "title": "Span Id"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "node",
+              "llm",
+              "tool",
+              "retrieval",
+              "guardrail",
+              "voice"
+            ],
+            "title": "Kind"
+          },
+          "start_ms": {
+            "type": "integer",
+            "title": "Start Ms"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "title": "Duration Ms"
+          },
+          "attrs": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Attrs",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "span_id",
+          "parent_id",
+          "name",
+          "kind",
+          "start_ms",
+          "duration_ms"
+        ],
+        "title": "Span"
+      },
+      "StepEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "step_started",
+              "step_completed",
+              "step_failed"
+            ],
+            "title": "Type",
+            "default": "step_started"
+          },
+          "step_id": {
+            "type": "string",
+            "title": "Step Id"
+          },
+          "tool": {
+            "type": "string",
+            "title": "Tool"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "system"
+            ],
+            "title": "Kind",
+            "default": "tool"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_id",
+          "tool",
+          "label"
+        ],
+        "title": "StepEvent"
+      },
+      "Ticket": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ],
+            "title": "Priority"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "turns": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Turns"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "customer_id",
+          "summary",
+          "category",
+          "priority",
+          "reason",
+          "turns",
+          "created_at"
+        ],
+        "title": "Ticket"
+      },
+      "TokenEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "token",
+            "title": "Type",
+            "default": "token"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "TokenEvent"
+      },
+      "TraceEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "trace",
+            "title": "Type",
+            "default": "trace"
+          },
+          "spans": {
+            "items": {
+              "$ref": "#/components/schemas/Span"
+            },
+            "type": "array",
+            "title": "Spans"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spans"
+        ],
+        "title": "TraceEvent"
+      },
+      "TraceView": {
+        "properties": {
+          "turn_id": {
+            "type": "string",
+            "title": "Turn Id"
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "spans": {
+            "items": {
+              "$ref": "#/components/schemas/Span"
+            },
+            "type": "array",
+            "title": "Spans"
+          },
+          "usage": {
+            "items": {
+              "$ref": "#/components/schemas/LLMUsage"
+            },
+            "type": "array",
+            "title": "Usage"
+          },
+          "latency": {
+            "$ref": "#/components/schemas/Latency"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "turn_id",
+          "channel",
+          "status",
+          "spans",
+          "usage",
+          "latency",
+          "created_at"
+        ],
+        "title": "TraceView"
+      },
+      "TranscriptEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "transcript",
+            "title": "Type",
+            "default": "transcript"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "final": {
+            "type": "boolean",
+            "title": "Final",
+            "default": true
+          },
+          "interrupted": {
+            "type": "boolean",
+            "title": "Interrupted",
+            "default": false
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "voice"
+            ],
+            "title": "Channel",
+            "default": "voice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "text"
+        ],
+        "title": "TranscriptEvent"
+      },
+      "TurnAccepted": {
+        "properties": {
+          "turn_id": {
+            "type": "string",
+            "title": "Turn Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "turn_id"
+        ],
+        "title": "TurnAccepted"
+      },
+      "TurnCompletedEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "turn_completed",
+            "title": "Type",
+            "default": "turn_completed"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "escalated",
+              "failed"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "TurnCompletedEvent"
+      },
+      "TurnStartedEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "turn_started",
+            "title": "Type",
+            "default": "turn_started"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "voice"
+            ],
+            "title": "Channel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "channel"
+        ],
+        "title": "TurnStartedEvent"
+      },
+      "UsageEvent": {
+        "properties": {
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "default": 0
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          },
+          "type": {
+            "type": "string",
+            "const": "usage",
+            "title": "Type",
+            "default": "usage"
+          },
+          "calls": {
+            "items": {
+              "$ref": "#/components/schemas/LLMUsage"
+            },
+            "type": "array",
+            "title": "Calls"
+          },
+          "turn_cost_usd": {
+            "type": "number",
+            "title": "Turn Cost Usd"
+          },
+          "session_cost_usd": {
+            "type": "number",
+            "title": "Session Cost Usd"
+          },
+          "latency": {
+            "$ref": "#/components/schemas/Latency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calls",
+          "turn_cost_usd",
+          "session_cost_usd",
+          "latency"
+        ],
+        "title": "UsageEvent"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

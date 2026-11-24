@@ -55,12 +55,25 @@ async def _release() -> None:
     await _ingest()
 
 
+def _openapi(out: str) -> None:
+    """Write the OpenAPI schema (the source of the frontend's generated TypeScript types)."""
+    import json
+
+    from app.main import create_app
+
+    Path(out).write_text(json.dumps(create_app().openapi(), indent=2) + "\n", encoding="utf-8")
+    print(f"openapi: wrote {out}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
-    parser.add_argument("command", choices=["migrate", "seed", "ingest", "release"])
+    parser.add_argument("command", choices=["migrate", "seed", "ingest", "release", "openapi"])
     parser.add_argument("--hash", action="store_true", help="ingest with the offline hashing embedder")
+    parser.add_argument("--out", default="openapi.json", help="output path for the openapi command")
     args = parser.parse_args()
-    if args.command == "ingest":
+    if args.command == "openapi":
+        _openapi(args.out)
+    elif args.command == "ingest":
         asyncio.run(_ingest(use_hash=args.hash))
     else:
         asyncio.run({"migrate": _migrate, "seed": _seed, "release": _release}[args.command]())
