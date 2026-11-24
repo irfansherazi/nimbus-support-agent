@@ -75,3 +75,8 @@ def test_corpus_refund_limits_match_policy_limits():
     chunks = [c for p in sorted(CORPUS.glob("*.md")) for c in chunk_markdown(p.stem, p.read_text(encoding="utf-8"))]
     assert len(chunks) > 20
     assert extract_refund_limits(chunks) == {"free": (0, 0), "pro": (20000, 30), "enterprise": (100000, 60)}
+
+
+def test_hash_changes_when_only_the_tier_tag_changes():
+    retagged = DOC.replace("## Pro tier {tier=pro}", "## Pro tier {tier=enterprise}")
+    assert chunk_markdown("refunds", DOC)[1].content_hash != chunk_markdown("refunds", retagged)[1].content_hash

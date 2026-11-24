@@ -135,7 +135,7 @@ def chunk_markdown(doc_id: str, text: str, max_tokens: int = 500, overlap_tokens
                     doc_type=doc_type,
                     content=piece,
                     embed_text=embed_text,
-                    content_hash=hashlib.sha256(embed_text.encode("utf-8")).hexdigest(),
+                    content_hash=hashlib.sha256(f"{tier}|{doc_type}|{embed_text}".encode()).hexdigest(),
                 )
             )
     return chunks

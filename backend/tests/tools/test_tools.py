@@ -214,3 +214,18 @@ def test_tool_schemas_are_openai_functions():
     }
     assert "tier" not in schemas["search_policies"]["function"]["parameters"]["properties"]
     assert schemas["issue_refund"]["function"]["parameters"]["required"] == ["invoice_id", "amount_usd", "reason"]
+
+
+@pytest.mark.parametrize(
+    "account_id,pin",
+    [
+        ("C1001", "4321"),
+        ("c 1001", "4321"),
+        ("C-1001", "4 3 2 1"),
+        ("c–1001", "4321."),
+        ("C.1001", "four three two one"),
+    ],
+)
+async def test_verify_accepts_how_speech_to_text_writes_ids(pool, account_id, pin):
+    out = await run(pool, None, "verify_customer", {"account_id": account_id, "pin": pin})
+    assert out.ok, (account_id, pin, out.error and out.error.message)

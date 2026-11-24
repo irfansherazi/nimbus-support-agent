@@ -52,6 +52,13 @@ class RecordVoiceLatency:
 
 
 @dataclass(frozen=True)
+class SpeakHoldingLine:
+    """The model went straight to the tool without saying anything: ask it for a short holding line."""
+
+    turn_id: str
+
+
+@dataclass(frozen=True)
 class RealtimeError:
     message: str
 
@@ -62,6 +69,7 @@ Effect = (
     | RunConsult
     | RecordRealtimeUsage
     | RecordVoiceLatency
+    | SpeakHoldingLine
     | RealtimeError
 )
 
@@ -115,9 +123,12 @@ class RealtimeEventHandler:
         return turn_for_item(self.last_user_item)
 
     def _on_response_created(self, e: dict[str, Any], now: int) -> list[Effect]:
-        rid = (e.get("response") or {}).get("id")
+        response = e.get("response") or {}
+        rid = response.get("id")
         if rid:
             self.resp_turn[rid] = turn_for_item(self.last_user_item)
+            if (response.get("metadata") or {}).get("purpose") == "holding":
+                self.resp_has_call.add(rid)  # a holding line: never stored, like one spoken next to a tool call
         return []
 
     def _on_response_output_item_added(self, e: dict[str, Any], now: int) -> list[Effect]:
@@ -150,8 +161,14 @@ class RealtimeEventHandler:
         rid = response.get("id")
         if rid and any(o.get("type") == "function_call" for o in response.get("output") or []):
             self.resp_has_call.add(rid)
+        out: list[Effect] = []
+        types = {o.get("type") for o in response.get("output") or []}
+        if "function_call" in types and "message" not in types:
+            out.append(SpeakHoldingLine(self._turn_of(rid)))
         usage = response.get("usage")
-        return [RecordRealtimeUsage(self._turn_of(rid), "realtime", usage)] if usage else []
+        if usage:
+            out.append(RecordRealtimeUsage(self._turn_of(rid), "realtime", usage))
+        return out
 
     # ---------------------------------------------------------------- playback
 

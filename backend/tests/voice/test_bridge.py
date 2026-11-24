@@ -255,3 +255,53 @@ async def test_a_crashed_bridge_ends_the_call_and_tells_the_ui(pool):
     assert not registry.active(sid)
     errors = [e async for e in _drain(bus, sid) if e.type == "error"]
     assert errors and errors[-1].code == "VOICE_DROPPED"
+
+
+async def test_bridge_speaks_a_holding_line_and_waits_for_it_before_the_answer(pool):
+    sid = await new_session(pool)
+    events = [
+        {"type": "input_audio_buffer.committed", "item_id": "u1"},
+        {"type": "response.created", "response": {"id": "r1"}},
+        {
+            "type": "response.function_call_arguments.done",
+            "response_id": "r1",
+            "call_id": "c1",
+            "name": "consult_agent",
+            "arguments": '{"user_request": "refund limit?"}',
+        },
+        {"type": "response.done", "response": {"id": "r1", "output": [{"type": "function_call"}]}},
+        {"type": "response.created", "response": {"id": "rh", "metadata": {"purpose": "holding"}}},
+        {"type": "spike.pause"},
+        {"type": "response.done", "response": {"id": "rh", "output": [{"type": "message"}]}},
+    ]
+    transport = OrderedTransport(events)
+    await make_bridge(pool, sid, transport).run(history=[])
+    log = transport.log
+    holding = next(i for i, (d, e) in enumerate(log) if d == "out" and e.get("response", {}).get("metadata"))
+    assert log[holding][1]["response"]["tool_choice"] == "none"
+    answer = max(i for i, (d, e) in enumerate(log) if d == "out" and e["type"] == "response.create")
+    holding_done = next(
+        i for i, (d, e) in enumerate(log) if d == "in" and e["type"] == "response.done" and e["response"]["id"] == "rh"
+    )
+    assert holding < holding_done < answer
+
+
+class OrderedTransport(FakeTransport):
+    """Records incoming and outgoing events in one timeline; 'spike.pause' lets background tasks run."""
+
+    def __init__(self, events):
+        super().__init__(events)
+        self.log: list[tuple[str, dict]] = []
+
+    async def send(self, event):
+        self.log.append(("out", event))
+        await super().send(event)
+
+    async def __aiter__(self):
+        for e in self.events:
+            if e["type"] == "spike.pause":
+                await asyncio.sleep(0.05)
+                continue
+            self.log.append(("in", e))
+            yield e
+            await asyncio.sleep(0)

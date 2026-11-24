@@ -96,3 +96,36 @@ def test_truncation_before_transcript_is_applied_when_transcript_arrives():
     )
     [stored] = of(out, StoreAssistantTranscript)
     assert stored.interrupted and stored.text == "Refunds for Pro…" and stored.turn_id == "v_u1"
+
+
+def test_silent_tool_call_asks_for_a_holding_line():
+    from app.voice.handler import SpeakHoldingLine
+
+    h = RealtimeEventHandler()
+    h.handle({"type": "input_audio_buffer.committed", "item_id": "u1"}, 0)
+    h.handle({"type": "response.created", "response": {"id": "r1"}}, 0)
+    done = {"type": "response.done", "response": {"id": "r1", "output": [{"type": "function_call"}]}}
+    assert SpeakHoldingLine("v_u1") in h.handle(done, 0)
+
+
+def test_spoken_holding_line_needs_no_extra_one():
+    from app.voice.handler import SpeakHoldingLine
+
+    effects = replay("consult.jsonl")  # the model said "Let me check that for you" itself
+    assert not any(isinstance(e, SpeakHoldingLine) for e in effects)
+
+
+def test_holding_line_responses_are_never_stored():
+    h = RealtimeEventHandler()
+    h.handle({"type": "input_audio_buffer.committed", "item_id": "u1"}, 0)
+    h.handle({"type": "response.created", "response": {"id": "rh", "metadata": {"purpose": "holding"}}}, 0)
+    h.handle(
+        {
+            "type": "response.output_audio_transcript.done",
+            "response_id": "rh",
+            "item_id": "a1",
+            "transcript": "One moment while I check that for you.",
+        },
+        0,
+    )
+    assert h.handle({"type": "output_audio_buffer.stopped", "response_id": "rh"}, 0) == []

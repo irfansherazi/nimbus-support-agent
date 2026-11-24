@@ -34,6 +34,7 @@ from app.voice.handler import (
     RecordRealtimeUsage,
     RecordVoiceLatency,
     RunConsult,
+    SpeakHoldingLine,
     StoreAssistantTranscript,
     StoreUserTranscript,
 )
@@ -45,6 +46,14 @@ log = logging.getLogger(__name__)
 CONSULT_FAILED = "I'm having trouble reaching our systems right now. Please try again in a moment."
 IDLE_MESSAGE = "Voice session ended after a minute of silence. You can keep chatting, or start a new call."
 MAX_MESSAGE = "Voice sessions are limited to 10 minutes. You can keep chatting, or start a new call."
+HOLDING_LINE_REQUEST = {
+    "type": "response.create",
+    "response": {
+        "instructions": 'Say only this, briefly and warmly: "One moment while I check that for you."',
+        "tool_choice": "none",
+        "metadata": {"purpose": "holding"},
+    },
+}
 ACTIVITY_EVENTS = {
     "input_audio_buffer.speech_started",
     "input_audio_buffer.speech_stopped",
@@ -124,6 +133,11 @@ class VoiceBridge:
         self._watchdog_interval = watchdog_interval_s
         self._started = self._last_activity = time.monotonic()
         self._ended = False
+        # Realtime allows one active response at a time: track them so the answer waits for a holding line.
+        self._active_responses = 0
+        self._requested_responses = 0
+        self._no_active_response = asyncio.Event()
+        self._no_active_response.set()
 
     # ---------------------------------------------------------------- lifecycle
 
@@ -138,6 +152,9 @@ class VoiceBridge:
                     self._last_activity = time.monotonic()
                 for effect in self.handler.handle(event, now_ms=int(time.time() * 1000)):
                     await self._apply(effect)
+                # After the effects: a holding line requested on this response.done keeps the line busy, so a
+                # waiting answer can't slip in between.
+                self._track_responses(event.get("type", ""))
         finally:
             watchdog.cancel()
             if self._tasks:
@@ -162,6 +179,25 @@ class VoiceBridge:
             elif self._consults_running == 0 and now - self._last_activity > self.settings.voice_idle_seconds:
                 await self.stop("VOICE_LIMIT", IDLE_MESSAGE)
 
+    def _track_responses(self, event_type: str) -> None:
+        if event_type == "response.created":
+            if self._requested_responses > 0:
+                self._requested_responses -= 1  # already counted when we asked for it
+            else:
+                self._active_responses += 1
+        elif event_type == "response.done":
+            self._active_responses = max(0, self._active_responses - 1)
+        if self._active_responses == 0:
+            self._no_active_response.set()
+        else:
+            self._no_active_response.clear()
+
+    async def _request_response(self, request: dict[str, Any]) -> None:
+        self._requested_responses += 1
+        self._active_responses += 1
+        self._no_active_response.clear()
+        await self.transport.send(request)
+
     def _emit(self, event: Any) -> None:
         self.bus.publish(self.session_id, event)
 
@@ -179,6 +215,8 @@ class VoiceBridge:
             await self._store(effect.turn_id, "assistant", effect.text, interrupted=effect.interrupted)
             if effect.turn_id in self.agent_answers:
                 self._spawn(self._check_drift(effect.turn_id, effect.text))
+        elif isinstance(effect, SpeakHoldingLine):
+            await self._request_response(HOLDING_LINE_REQUEST)
         elif isinstance(effect, RunConsult):
             self._consults_running += 1
             self._spawn(self._consult(effect))
@@ -237,7 +275,12 @@ class VoiceBridge:
                     "item": {"type": "function_call_output", "call_id": effect.call_id, "output": answer},
                 }
             )
-            await self.transport.send({"type": "response.create"})
+            # Wait for a holding line still being spoken: overlapping responses are rejected by the API.
+            try:
+                await asyncio.wait_for(self._no_active_response.wait(), 15)
+            except TimeoutError:
+                log.info("speaking the answer for %s without waiting any longer", effect.turn_id)
+            await self._request_response({"type": "response.create"})
         except Exception:
             log.info("call ended before the agent's answer could be spoken (%s)", effect.turn_id)
 

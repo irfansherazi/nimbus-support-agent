@@ -16,7 +16,7 @@ Plan prices are as follows:
 
 Prices exclude applicable taxes, which are added to each invoice as described in the Billing Policy.
 
-## Free plan {tier=free}
+## Free plan
 
 The Nimbus Free plan costs $0 and is intended for individuals and small groups trying Nimbus. The Free plan includes:
 
@@ -30,7 +30,7 @@ The Nimbus Free plan costs $0 and is intended for individuals and small groups t
 
 The Free plan does not include API access, webhooks, SSO, admin audit logs or a choice of data region. Free plan workspaces can buy extra storage as an add-on; Free plan add-on charges are treated as Free plan charges under the Refund Policy.
 
-## Pro plan {tier=pro}
+## Pro plan
 
 The Nimbus Pro plan costs $49 per user per month, or $490 per user per year billed annually. Annual billing costs the equivalent of ten months of monthly billing. The Pro plan includes everything in Free, plus:
 
@@ -45,7 +45,7 @@ The Nimbus Pro plan costs $49 per user per month, or $490 per user per year bill
 
 Pro plan seats are counted on the billing date. Adding users mid-cycle is charged on a prorated basis on the next invoice.
 
-## Enterprise plan {tier=enterprise}
+## Enterprise plan
 
 The Nimbus Enterprise plan is priced per contract and billed monthly or annually, with payment by card or by invoice on net-30 terms. The Enterprise plan includes everything in Pro, plus:
 
