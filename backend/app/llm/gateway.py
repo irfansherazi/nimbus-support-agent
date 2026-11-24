@@ -268,7 +268,11 @@ def build_gateway(settings: Settings, budget: BudgetGuard | None = None) -> LLMG
 
     def openai_model(name: str, temperature: float) -> ChatOpenAI:
         return ChatOpenAI(
-            model=name, api_key=SecretStr(settings.openai_api_key), max_retries=0, stream_usage=True, temperature=temperature
+            model=name,
+            api_key=SecretStr(settings.openai_api_key),
+            max_retries=0,
+            stream_usage=True,
+            temperature=temperature,
         )
 
     agent = openai_model(settings.agent_model, 0.2)
