@@ -223,6 +223,12 @@ describe("sessionReducer", () => {
     const s = run(init(), ev({ type: "error", code: "VOICE_LIMIT", retryable: false, message: "silence" }));
     expect(s.error?.seq).toBe(s.lastSeq);
   });
+
+  it("a failure-simulation change updates the session's chaos flags right away", () => {
+    // Bug: the menu re-read stale flags after saving, so a ticked box unticked itself.
+    const s = sessionReducer(init(), { kind: "chaos", chaos: { ...NO_CHAOS, llm_429_next: true, tool_slow: "issue_refund" } });
+    expect(s.chaos).toMatchObject({ llm_429_next: true, tool_slow: "issue_refund" });
+  });
 });
 
 const NO_CHAOS = { llm_timeout_next: false, llm_429_next: false, llm_outage_next: false, tool_fail_next: null, tool_slow: null };

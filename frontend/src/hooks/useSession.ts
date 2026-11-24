@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { API_URL, ApiError, createSession, getSession, getTraces, sendMessage } from "@/lib/api";
-import { subscribe, type StreamStatus } from "@/lib/events";
+import { API_URL, ApiError, createSession, getSession, getTraces, sendMessage, setChaos } from "@/lib/api";
+import { subscribe, type ChaosState, type StreamStatus } from "@/lib/events";
 import { initialState, sessionReducer } from "@/lib/session-store";
 
 const STORAGE_KEY = "nimbus.sessionId";
@@ -117,9 +117,30 @@ export function useSession() {
     }
   }, []);
 
+  /** Failure simulation: show the change at once, then keep whatever the server stored (or roll back on error). */
+  const updateChaos = useCallback(
+    async (patch: Partial<ChaosState>) => {
+      const id = sessionRef.current;
+      if (!id) return;
+      const before = state.chaos;
+      const next = { ...before, ...patch };
+      dispatch({ kind: "chaos", chaos: next });
+      try {
+        dispatch({ kind: "chaos", chaos: await setChaos(id, next) });
+      } catch {
+        dispatch({ kind: "chaos", chaos: before });
+        dispatch({
+          kind: "local_error",
+          error: { code: "NETWORK", message: "Couldn't change the failure simulation.", retryable: false },
+        });
+      }
+    },
+    [state.chaos],
+  );
+
   const retry = useCallback(async () => {
     if (state.pendingRetry) await send(state.pendingRetry.text, state.pendingRetry.turnId);
   }, [state.pendingRetry, send]);
 
-  return { state, stream, ready, send, retry, newConversation: startNew };
+  return { state, stream, ready, send, retry, updateChaos, newConversation: startNew };
 }

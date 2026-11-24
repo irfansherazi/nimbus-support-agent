@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { setChaos } from "@/lib/api";
 import type { ChaosState } from "@/lib/events";
 
 const TOOLS = [
@@ -12,24 +10,17 @@ const TOOLS = [
   ["update_account_field", "Update account"],
 ] as const;
 
-/** Failure simulation for the demo. Flags apply to this conversation only; one-shot flags clear once used. */
-export function ChaosMenu({ sessionId, chaos }: { sessionId: string | null; chaos: ChaosState }) {
-  const [local, setLocal] = useState<ChaosState | null>(null);
-  const [saving, setSaving] = useState(false);
-  const state = local ?? chaos;
-
-  async function update(patch: Partial<ChaosState>) {
-    if (!sessionId) return;
-    const next = { ...state, ...patch };
-    setLocal(next);
-    setSaving(true);
-    try {
-      setLocal(await setChaos(sessionId, next));
-    } finally {
-      setSaving(false);
-      setLocal(null); // the next session refresh is the source of truth
-    }
-  }
+/** Failure simulation for the demo. Flags apply to this conversation only; one-shot flags clear once used.
+ *  Stateless: it shows the session's flags, and changes go through the session (which stores the server's answer). */
+export function ChaosMenu({
+  chaos,
+  onChange,
+}: {
+  chaos: ChaosState;
+  onChange: (patch: Partial<ChaosState>) => Promise<void>;
+}) {
+  const state = chaos;
+  const update = (patch: Partial<ChaosState>) => void onChange(patch);
 
   const check = (key: "llm_timeout_next" | "llm_429_next" | "llm_outage_next", label: string, hint: string) => (
     <label className="flex items-start gap-2 py-1 text-sm">
@@ -37,7 +28,7 @@ export function ChaosMenu({ sessionId, chaos }: { sessionId: string | null; chao
         type="checkbox"
         className="mt-1 accent-storm"
         checked={Boolean(state[key])}
-        onChange={(e) => void update({ [key]: e.target.checked })}
+        onChange={(e) => update({ [key]: e.target.checked })}
       />
       <span>
         {label}
@@ -49,7 +40,7 @@ export function ChaosMenu({ sessionId, chaos }: { sessionId: string | null; chao
   return (
     <details className="border-b border-line px-4 py-3">
       <summary className="cursor-pointer text-sm font-semibold">
-        Simulate failures {saving && <span className="font-normal text-ink-soft">(saving)</span>}
+        Simulate failures
       </summary>
       <div className="mt-2 space-y-1">
         {check("llm_timeout_next", "Next model call times out", "The backup model answers instead.")}
@@ -60,7 +51,7 @@ export function ChaosMenu({ sessionId, chaos }: { sessionId: string | null; chao
           <select
             className="min-w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-sm"
             value={state.tool_fail_next ?? ""}
-            onChange={(e) => void update({ tool_fail_next: e.target.value || null })}
+            onChange={(e) => update({ tool_fail_next: e.target.value || null })}
           >
             <option value="">No tool</option>
             {TOOLS.map(([v, l]) => (
@@ -75,7 +66,7 @@ export function ChaosMenu({ sessionId, chaos }: { sessionId: string | null; chao
           <select
             className="min-w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-sm"
             value={state.tool_slow ?? ""}
-            onChange={(e) => void update({ tool_slow: e.target.value || null })}
+            onChange={(e) => update({ tool_slow: e.target.value || null })}
           >
             <option value="">No tool</option>
             {TOOLS.map(([v, l]) => (

@@ -82,6 +82,7 @@ export type SessionAction =
   | { kind: "hydrate"; session: SessionView; traces?: TraceView[] }
   | { kind: "local_error"; error: ErrorView }
   | { kind: "clear_error" }
+  | { kind: "chaos"; chaos: ChaosState }
   | { kind: "reset"; sessionId: string | null };
 
 export function initialState(sessionId: string | null): SessionState {
@@ -326,6 +327,8 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       return { ...state, error: action.error };
     case "clear_error":
       return { ...state, error: null };
+    case "chaos":
+      return { ...state, chaos: action.chaos };
     case "reset":
       return initialState(action.sessionId);
   }

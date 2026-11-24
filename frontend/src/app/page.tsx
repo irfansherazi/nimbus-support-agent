@@ -14,7 +14,7 @@ import { isVoiceError, voiceErrorToHandle } from "@/lib/voice/voice-errors";
 const DRAWER_KEY = "nimbus.drawerOpen";
 
 export default function Home() {
-  const { state, stream, send, retry, newConversation } = useSession();
+  const { state, stream, send, retry, updateChaos, newConversation } = useSession();
   const voice = useVoice(state.sessionId);
   const [voiceNoticeHidden, setVoiceNoticeHidden] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -115,7 +115,7 @@ export default function Home() {
               "lg:static lg:z-auto lg:h-auto lg:w-[380px] lg:shrink-0 lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none"
             }
           >
-            <ObservabilityDrawer state={state} onClose={toggleDrawer} />
+            <ObservabilityDrawer state={state} onClose={toggleDrawer} onChaosChange={updateChaos} />
           </aside>
         )}
       </div>

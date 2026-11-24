@@ -2,13 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { getTickets } from "@/lib/api";
-import type { Ticket } from "@/lib/events";
+import type { ChaosState, Ticket } from "@/lib/events";
 import { formatUsd } from "@/lib/format";
 import type { SessionState } from "@/lib/session-store";
 import { ChaosMenu } from "./ChaosMenu";
 import { TurnTrace } from "./TurnTrace";
 
-export function ObservabilityDrawer({ state, onClose }: { state: SessionState; onClose: () => void }) {
+export function ObservabilityDrawer({
+  state,
+  onClose,
+  onChaosChange,
+}: {
+  state: SessionState;
+  onClose: () => void;
+  onChaosChange: (patch: Partial<ChaosState>) => Promise<void>;
+}) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const ticketKey = state.escalation?.ticket_id ?? "";
 
@@ -32,7 +40,7 @@ export function ObservabilityDrawer({ state, onClose }: { state: SessionState; o
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <ChaosMenu sessionId={state.sessionId} chaos={state.chaos} />
+        <ChaosMenu chaos={state.chaos} onChange={onChaosChange} />
 
         {tickets.length > 0 && (
           <details open className="border-b border-line px-4 py-3">
